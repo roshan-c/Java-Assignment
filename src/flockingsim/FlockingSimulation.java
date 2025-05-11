@@ -21,10 +21,12 @@ public class FlockingSimulation {
     private Canvas canvas;
     private ArrayList<Boid> boids; // array that holds all the boids in the simulation
     private boolean running;
+    private Utils utils;
 
-    public FlockingSimulation(Canvas canvas) {
+    public FlockingSimulation(Canvas canvas, Utils utils) {
         this.canvas = canvas;
         this.boids = new ArrayList<>();
+        this.utils = utils;
     }
 
     /**
@@ -64,22 +66,22 @@ public class FlockingSimulation {
         this.running = true;
         while (this.running) {
             // Update boid logic (can be off EDT)
-            for (Boid boid_agent : this.boids) { // Renamed to avoid conflict if 'boid' is a field
-                boid_agent.update(1); // Assuming dt is 1 for simplicity
+            for (Boid boidAgent : this.boids) { // Renamed from boid_agent
+                boidAgent.update(1); // Assuming dt is 1 for simplicity
             }
 
             // Schedule drawing on EDT
             SwingUtilities.invokeLater(() -> {
                 if (canvas != null) { // Check if canvas is initialized
                     canvas.clear();
-                    for (Boid boid_to_draw : this.boids) { // Renamed for clarity
-                        boid_to_draw.draw();
+                    for (Boid boidToDraw : this.boids) { // Renamed from boid_to_draw
+                        boidToDraw.draw();
                     }
                     canvas.repaint();
                 }
             });
 
-            Utils.pause(50); // Pause in the simulation thread
+            this.utils.pause(50); // Pause in the simulation thread
         }
     }
 
@@ -87,35 +89,36 @@ public class FlockingSimulation {
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
                 // 1. Create Canvas
-                Canvas canvas = new Canvas();
+                Canvas canvas = new Canvas(); // Canvas constructor sets preferred size 800x600
+                Utils utils = new Utils();
 
                 // 2. Create JFrame
                 JFrame frame = new JFrame("Flocking Simulator");
                 frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                frame.getContentPane().add(canvas); // Add canvas to frame
+                frame.setSize(800, 600); // Set frame size
+                frame.setLocationRelativeTo(null); // Center the frame
+                frame.setVisible(true); // Make frame visible - layout happens here
 
-                // 3. Add Canvas to JFrame's content pane
-                // Ensure Canvas is a JComponent or similar, or use a JPanel as a container if needed
-                frame.getContentPane().add(canvas);
-
-                // 4. Size the frame
-                // frame.pack(); // Use pack if Canvas has a preferred size set.
-                frame.setSize(800, 600); // Or set size explicitly.
-                frame.setLocationRelativeTo(null); // Center the frame on screen
-
-                // 5. Make JFrame visible (LAST UI step for the frame itself)
-                frame.setVisible(true);
-
+                // Original structure: setup simulation directly after frame is visible
                 // 6. Create FlockingSimulation instance
-                FlockingSimulation simulation = new FlockingSimulation(canvas);
+                FlockingSimulation simulation = new FlockingSimulation(canvas, utils);
 
-                // Example: Add a boid with fixed coordinates for testing
-                int fixedX = 400; // Center for 800 width
-                int fixedY = 300; // Center for 600 height
-                simulation.addBoid(new Boid(canvas, new CartesianCoordinate(fixedX, fixedY), new CartesianCoordinate(0.5, 0.5))); // Small initial velocity
+                // Example: Add a boid with fixed coordinates for testing (original values)
+                int fixedX = 400; 
+                int fixedY = 300; 
+                simulation.addBoid(new Boid(canvas, new CartesianCoordinate(fixedX, fixedY), new CartesianCoordinate(0.5, 0.5)));
 
-                simulation.addBoid(new Boid(canvas, new CartesianCoordinate(Utils.randomInt(0, canvas.getWidth()), Utils.randomInt(0, canvas.getHeight())), new CartesianCoordinate(Utils.randomDouble(-1, 1), Utils.randomDouble(-1, 1))));
-                simulation.addBoid(new Boid(canvas, new CartesianCoordinate(Utils.randomInt(0, canvas.getWidth()), Utils.randomInt(0, canvas.getHeight())), new CartesianCoordinate(Utils.randomDouble(-1, 1), Utils.randomDouble(-1, 1))));
-                simulation.addBoid(new Boid(canvas, new CartesianCoordinate(Utils.randomInt(0, canvas.getWidth()), Utils.randomInt(0, canvas.getHeight())), new CartesianCoordinate(Utils.randomDouble(-1, 1), Utils.randomDouble(-1, 1))));
+                // Add some random boids using current canvas dimensions
+                simulation.addBoid(new Boid(canvas, 
+                    new CartesianCoordinate(utils.randomInt(0, canvas.getWidth()), utils.randomInt(0, canvas.getHeight())),
+                    new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1))));
+                simulation.addBoid(new Boid(canvas, 
+                    new CartesianCoordinate(utils.randomInt(0, canvas.getWidth()), utils.randomInt(0, canvas.getHeight())),
+                    new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1))));
+                simulation.addBoid(new Boid(canvas, 
+                    new CartesianCoordinate(utils.randomInt(0, canvas.getWidth()), utils.randomInt(0, canvas.getHeight())),
+                    new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1))));
                
                 // 7. Start the simulation loop in a new thread
                 new Thread(() -> simulation.runSimulationLoop()).start();

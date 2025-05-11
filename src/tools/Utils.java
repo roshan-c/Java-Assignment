@@ -3,7 +3,7 @@ package tools;
 import java.util.Random;
 
 public class Utils {
-	private static Random random = new Random();
+	private Random random = new Random();
 	
 	/**
 	 * Generates a random integer between min (inclusive) and max (exclusive).
@@ -11,7 +11,7 @@ public class Utils {
 	 * @param max The maximum value (exclusive).
 	 * @return A random integer in the specified range.
 	 */
-	public static int randomInt(int min, int max) {
+	public int randomInt(int min, int max) {
 		if (min >= max) {
 			// Or throw an IllegalArgumentException, or return min
 			return min;
@@ -25,7 +25,7 @@ public class Utils {
 	 * @param max The maximum value.
 	 * @return A random double in the specified range.
 	 */
-	public static double randomDouble(double min, double max) {
+	public double randomDouble(double min, double max) {
 		if (min >= max) {
 			// Or throw an IllegalArgumentException, or return min
 			return min;
@@ -37,7 +37,7 @@ public class Utils {
 	 * Pauses the current thread for a specified number of milliseconds.
 	 * @param millis The number of milliseconds to pause.
 	 */
-	public static void pause(long millis) {
+	public void pause(long millis) {
 		try {
 			Thread.sleep(millis);
 		} catch (InterruptedException e) {

@@ -1,4 +1,4 @@
-# Phase 3: Implementing Core Flocking Rules
+vke# Phase 3: Implementing Core Flocking Rules
 
 - [ ] **`CartesianCoordinate` Enhancements**: Ensure these vector math methods are present:
     - [ ] `subtract(CartesianCoordinate other)`: Returns `this - other`.

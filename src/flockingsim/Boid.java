@@ -1,5 +1,7 @@
 package flockingsim;
 
+import java.util.ArrayList;
+
 import drawing.Canvas;
 import geometry.CartesianCoordinate;
 
@@ -13,15 +15,27 @@ public class Boid {
     private CartesianCoordinate position;
     private CartesianCoordinate velocity;
     private CartesianCoordinate acceleration;
+    private CartesianCoordinate direction;
+    private CartesianCoordinate angularVelocity;
     private boolean penDown;
     private Canvas canvas;
     private int angle; // Represents the boid's orientation, if used for drawing or turning logic
+    private double maxSpeed;
+    private double maxForce;
+    private double perceptionRadius; // the radius within which the boid can see other boids
+    private double cohesionAmount;
+    private static final double BOID_LENGTH = 7; // Length of the boid
+    private static final double BOID_WIDTH = 9; // Width of the boid
+    private static final double BOID_BACK_OFFSET = 5; // Offset from the back of the boid to the tip of the tail
+
 
     /**
      * Constructor for the Boid class.
      * @param canvas The canvas on which the boid will be drawn.
      * @param position The initial position of the boid.
-     * @param velocity The initial velocity of the boid. */
+     * @param velocity The initial velocity of the boid.
+     * @param maxSpeed The maximum speed of the boid.
+     * @param maxForce The maximum force of the boid. */
     public Boid(Canvas canvas,CartesianCoordinate position, CartesianCoordinate velocity) {
         this.canvas = canvas;
         this.position = position;
@@ -41,6 +55,14 @@ public class Boid {
 
         // Scale velocity by dt before adding to position
         this.position = this.position.add(this.velocity.multiply(dt)); // Needs multiply method
+        if (this.velocity.magnitude() > this.maxSpeed){
+            this.velocity = this.velocity.normalize().multiply(this.maxSpeed);
+        }
+
+        // Apply boundary conditions
+        if (this.canvas != null) { // Ensure canvas is available
+            wrapPosition(this.canvas.getWidth(), this.canvas.getHeight());
+        }
 
         this.acceleration = new CartesianCoordinate(0, 0);
     }
@@ -100,8 +122,35 @@ public class Boid {
      * For debugging, this draws a small cross at the boid's position.
      */
     public void draw() {
-        // Draw the boid in its current position
-        canvas.drawLineBetweenPoints(this.position, this.position.add(this.velocity));
+        CartesianCoordinate currentPosition = this.position;
+        CartesianCoordinate vel = this.velocity;
+
+        // Handle zero velocity for drawing: either draw a default shape or use a default orientation
+        double magnitudeSq = vel.getX() * vel.getX() + vel.getY() * vel.getY();
+        CartesianCoordinate normVelocity;
+
+        if (magnitudeSq < 0.00001) { // If velocity is very close to zero make it default to facing right
+            normVelocity = new CartesianCoordinate(1, 0); 
+        } else {
+            normVelocity = vel.normalize();
+        }
+
+        CartesianCoordinate perpVelocity = normVelocity.perpendicular();
+
+        CartesianCoordinate frontPosition = currentPosition.add(normVelocity    .multiply(BOID_LENGTH));
+
+        // Calculate the center of the base of the triangle (behind the current position)
+        CartesianCoordinate baseCenter = currentPosition.add(normVelocity.multiply(-BOID_BACK_OFFSET));
+        
+        CartesianCoordinate leftPosition = baseCenter.add(perpVelocity.multiply(BOID_WIDTH / 2.0));
+        CartesianCoordinate rightPosition = baseCenter.add(perpVelocity.multiply(-BOID_WIDTH / 2.0)); // Or baseCenter.subtract(perpVelocity.multiply(BOID_WIDTH / 2.0))
+
+        // Draw the triangle outline
+        if (this.penDown) { // Only draw if pen is down,
+            canvas.drawLineBetweenPoints(frontPosition, leftPosition);
+            canvas.drawLineBetweenPoints(leftPosition, rightPosition);
+            canvas.drawLineBetweenPoints(rightPosition, frontPosition);
+        }
     }
 
     /**
@@ -111,4 +160,80 @@ public class Boid {
     public void undraw() {
         canvas.removeMostRecentLine();
     }
+
+    /** Keep the boid within the bounds of the canvas
+     * The boid will appear on the opposite side of the canvas when it reaches an edge.
+     * @param width The width of the canvas
+     * @param height The height of the canvas */
+
+    public void wrapPosition(int canvasWidth, int canvasHeight) {
+        // Safeguard: Do nothing if canvas dimensions are not valid
+        if (canvasWidth <= 0 || canvasHeight <= 0) {
+            return;
+        }
+
+        double x = this.position.getX();
+        double y = this.position.getY();
+        boolean changed = false;
+
+        while (x < 0) {
+            x += canvasWidth;
+            changed = true;
+        }
+        while (x >= canvasWidth) {
+            x -= canvasWidth;
+            changed = true;
+        }
+
+        while (y < 0) {
+            y += canvasHeight;
+            changed = true;
+        }
+        while (y >= canvasHeight) {
+            y -= canvasHeight;
+            changed = true;
+        }
+
+        if (changed) {
+            this.position = new CartesianCoordinate(x, y);
+        }
+
+    }
+
+    public int getNeighboursInRadius(ArrayList<Boid> boids, double radius) {
+        int count = 0;
+        for (Boid boid : boids) {
+            if (this.position.distance(boid.position).magnitude() <= radius) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public CartesianCoordinate getCentreOfMass(ArrayList<Boid> boids, double radius) {
+        int count = 0;
+        CartesianCoordinate sum = new CartesianCoordinate(0, 0);
+        for (Boid boid : boids) {
+            if (this.position.distance(boid.position).magnitude() <= radius) {
+                sum = sum.add(boid.position);
+                count++;
+            }
+        }
+        return sum.divide(count);
+    }
+
+    public double getSteeringAngle(ArrayList<Boid> boids, double radius) {
+        CartesianCoordinate centreOfMass = getCentreOfMass(boids, radius);
+        CartesianCoordinate directionToCentreOfMass = centreOfMass.subtract(this.position);  // direction to the centre of mass
+        double angle = Math.atan2(directionToCentreOfMass.getY(), directionToCentreOfMass.getX());
+        return angle;
+    }
+
+    public CartesianCoordinate applyCohesion(ArrayList<Boid> boids, double radius, double cohesionAmount) {
+        double directionToCentreOfMass = this.position.magnitude() + cohesionAmount*getSteeringAngle(boids, radius);
+        this.velocity = this.velocity.add(new CartesianCoordinate(Math.cos(directionToCentreOfMass), Math.sin(directionToCentreOfMass)));
+        return this.velocity;
+    }
+
+
 }
