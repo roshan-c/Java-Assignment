@@ -1,0 +1,47 @@
+# Phase 1: Basic Setup & Single Agent Movement
+
+- [X] **Project Structure**:
+    - [X] Packages: `flockingsim`, `geometry`, `drawing`, `tools`
+- [X] **Core Utility Classes**:
+    - [X] `geometry.CartesianCoordinate`: Stores X,Y coordinates.
+        - [X] Constructor
+        - [X] `getX()`, `getY()` methods
+        - [X] `add(CartesianCoordinate other)` method
+        - [X] `multiply(double scalar)` method
+    - [X] `drawing.Canvas` (Provided): Handles drawing lines on a JPanel.
+    - [X] `tools.Utils`:
+        - [X] `pause(long millis)`
+        - [X] `randomInt(int min, int max)`
+        - [X] `randomDouble(double min, double max)`
+- [X] **Boid Class (`flockingsim.Boid`)**:
+    - [X] Fields: `position`, `velocity`, `acceleration` (all `CartesianCoordinate`), `canvas`.
+    - [X] Constructor: Initializes `position`, `velocity`, `canvas`, and sets initial `acceleration` to (0,0).
+    - [X] `update(double dt)` method:
+        - [X] Updates `velocity` using `acceleration` and `dt`.
+        - [X] Updates `position` using `velocity` and `dt`.
+        - [X] Resets `acceleration` to (0,0).
+    - [X] `draw()` method: Renders the boid on the canvas (currently a cross, was a line based on velocity).
+- [X] **Simulation Class (`flockingsim.FlockingSimulation`)**:
+    - [X] Fields: `canvas`, `ArrayList<Boid> boids`, `running` flag.
+    - [X] Constructor: Initializes `canvas` and `boids` list.
+    - [X] `addBoid(Boid boid)` method.
+    - [X] `main` method:
+        - [X] Sets up `JFrame` (title, size, close operation).
+        - [X] Creates `Canvas` instance and adds to `JFrame`.
+        - [X] Makes `JFrame` visible.
+        - [X] Creates `FlockingSimulation` instance.
+        - [X] Adds initial boids (both fixed and random).
+        - [X] Starts `runSimulationLoop` in a new `Thread`.
+    - [X] `runSimulationLoop()` method:
+        - [X] Contains the main `while(running)` loop.
+        - [X] Iterates through boids, calling `boid.update(dt)`.
+        - [X] Uses `SwingUtilities.invokeLater` to:
+            - [X] Call `canvas.clear()`.
+            - [X] Iterate through boids, calling `boid.draw()`.
+            - [X] Call `canvas.repaint()`.
+        - [X] Calls `Utils.pause()` to control frame rate.
+- [X] **Functionality Achieved**:
+    - [X] Window appears correctly.
+    - [X] Multiple boids are instantiated and appear on the canvas.
+    - [X] Boids move based on their initial velocity and the (explicit or implicit) `dt`.
+    - [X] Understanding of the role of `dt` in physics updates. 

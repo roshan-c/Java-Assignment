@@ -1,0 +1,38 @@
+# Phase 3: Implementing Core Flocking Rules
+
+- [ ] **`CartesianCoordinate` Enhancements**: Ensure these vector math methods are present:
+    - [ ] `subtract(CartesianCoordinate other)`: Returns `this - other`.
+    - [ ] `magnitude()`: Returns the length of the vector.
+    - [ ] `normalize()`: Returns a unit vector (length 1) in the same direction.
+    - [ ] `distance(CartesianCoordinate other)`: Returns the scalar distance between two points.
+    - [ ] `limitMagnitude(double max)`: Limits the vector's magnitude to `max`.
+- [ ] **Neighborhood Detection (in `Boid.java`)**:
+    - [ ] Define `perceptionRadius` field in `Boid`.
+    - [ ] Method like `getNeighbors(ArrayList<Boid> allBoids)` that returns a list of boids within the `perceptionRadius` (excluding itself).
+- [ ] **Separation Rule (in `Boid.java`)**:
+    - [ ] Method `calculateSeparationForce(ArrayList<Boid> neighbors)`:
+        - [ ] Iterates through neighbors.
+        - [ ] For each neighbor closer than a desired separation distance, calculate a force vector pointing away from it.
+        - [ ] Scale this force inversely by distance (stronger repulsion for closer boids).
+        - [ ] Sum these repulsion forces.
+        - [ ] Normalize and scale to `maxForce` if necessary.
+    - [ ] Apply this force to `boid.acceleration`.
+- [ ] **Alignment Rule (in `Boid.java`)**:
+    - [ ] Method `calculateAlignmentForce(ArrayList<Boid> neighbors)`:
+        - [ ] Calculate the average `velocity` of all neighbors.
+        - [ ] Calculate a steering force vector towards this average velocity (`desired_velocity - current_velocity`).
+        - [ ] Normalize and scale to `maxForce`.
+    - [ ] Apply this force to `boid.acceleration`.
+- [ ] **Cohesion Rule (in `Boid.java`)**:
+    - [ ] Method `calculateCohesionForce(ArrayList<Boid> neighbors)`:
+        - [ ] Calculate the average `position` (center of mass) of all neighbors.
+        - [ ] Calculate a steering force vector from the boid's current position towards this average position (`desired_position - current_position`).
+        - [ ] Normalize and scale to `maxForce`.
+    - [ ] Apply this force to `boid.acceleration`.
+- [ ] **Combining Steering Forces (in `Boid.java`)**:
+    - [ ] Create a method like `applyFlockingRules(ArrayList<Boid> allBoids)` that is called once per update, per boid from `FlockingSimulation`.
+    - [ ] Inside this method:
+        - [ ] Get neighbors.
+        - [ ] Calculate separation, alignment, and cohesion forces.
+        - [ ] Add these forces together (possibly with weighting factors for each: `totalForce = sepForce.multiply(sepWeight) + aliForce.multiply(aliWeight) + cohForce.multiply(cohWeight)`).
+        - [ ] Apply `totalForce` to `this.acceleration` (e.g., `this.acceleration = this.acceleration.add(totalForce)`). Remember `acceleration` is reset each frame, so this *is* the acceleration for the current frame. 
