@@ -24,11 +24,11 @@ public class Boid {
     // Standard flocking weights
     private double separationWeight = 1.5;
     private double alignmentWeight = 1.0;
-    private double cohesionWeight = 1.0;
+    private double cohesionWeight = 1.0;  
     private double desiredSeparation = 25.0;
-    private double obstacleAvoidanceWeight = 2.0;
-    private double obstacleSafetyRadius = 80.0;
-    private double obstacleLookAhead = 40.0;
+    private double obstacleAvoidanceWeight = 4.0;  // Increased weight
+    private double obstacleSafetyRadius = 120.0;   // Increased safety radius
+    private double lookAheadDistance = 150.0;      // Look ahead distance for obstacle avoidance
     private double obstacleAvoidanceBuffer = 40.0;
     private double minSpeed = 2.0;
     private static final double BOID_LENGTH = 7; // Length of the boid
@@ -159,13 +159,17 @@ public class Boid {
             if (this.canvas != null) {
                 wrapPosition(this.canvas.getWidth(), this.canvas.getHeight());
             }
+        } else {
+            // If position is not safe, reduce speed more aggressively
+            this.velocity = this.velocity.multiply(0.3); // Reduce speed by 70%
         }
     }
 
     private boolean isPositionSafe(CartesianCoordinate newPosition) {
         for (Rectangle obstacle : this.getObstacles()) {
             double distance = newPosition.distance(obstacle.getCenter()).magnitude();
-            if (distance < this.obstacleSafetyRadius) {
+            // Add a larger buffer to the safety radius for position checking
+            if (distance < this.obstacleSafetyRadius * 1.5) {
                 return false;
             }
         }
@@ -279,11 +283,6 @@ public class Boid {
         this.acceleration = this.acceleration.add(cohesionForce);
         this.acceleration = this.acceleration.add(avoidanceForce);
 
-        // Optional: Limit total acceleration if needed, though limiting individual
-        // steering forces (as done in calculate methods) is more common.
-        // if (this.acceleration.magnitude() > someOverallMaxForce) {
-        //    this.acceleration = this.acceleration.normalize().multiply(someOverallMaxForce);
-        // }
     }
 
     /**
@@ -412,22 +411,46 @@ public class Boid {
      */
     private CartesianCoordinate calculateObstacleAvoidanceForce(List<Rectangle> obstacles) {
         CartesianCoordinate steer = new CartesianCoordinate(0, 0);
+        int count = 0;
+        
+        // Calculate future position based on current velocity
+        CartesianCoordinate futurePosition = this.position.add(
+            this.velocity.normalize().multiply(this.lookAheadDistance)
+        );
         
         for (Rectangle obstacle : obstacles) {
-            double distance = this.position.distance(obstacle.getCenter()).magnitude();
-            if (distance < this.obstacleSafetyRadius) {
-                CartesianCoordinate away = this.position.subtract(obstacle.getCenter());
-                away = away.normalize();
-                double strength = (this.obstacleSafetyRadius - distance) / this.obstacleSafetyRadius;
-                away = away.multiply(this.maxSpeed * strength);
-                steer = steer.add(away);
+            // Check both current and future position
+            double currentDistance = this.position.distance(obstacle.getCenter()).magnitude();
+            double futureDistance = futurePosition.distance(obstacle.getCenter()).magnitude();
+            
+            // Use the closer of the two distances
+            double distance = Math.min(currentDistance, futureDistance);
+            
+            // If within safety radius, avoid the obstacle
+            if (distance > 0 && distance < this.obstacleSafetyRadius) {
+                // Calculate vector away from obstacle
+                CartesianCoordinate diff = this.position.subtract(obstacle.getCenter());
+                diff = diff.normalize();
+                
+                // Make the force much stronger when closer to the obstacle
+                double strength = Math.pow(1.0 - (distance / this.obstacleSafetyRadius), 3);
+                diff = diff.multiply(this.maxSpeed * strength * 3.0); // Tripled the strength
+                
+                steer = steer.add(diff);
+                count++;
             }
         }
         
-        if (steer.magnitude() > 0) {
-            steer = steer.normalize().multiply(this.maxSpeed);
-            steer = steer.subtract(this.velocity);
-            steer = steer.limit(this.maxForce * 2.0);
+        if (count > 0) {
+            // Average the avoidance forces
+            steer = steer.divide(count);
+            
+            // Scale to desired speed and make the force stronger
+            if (steer.magnitude() > 0) {
+                steer = steer.normalize().multiply(this.maxSpeed * 2.0); // Doubled speed
+                steer = steer.subtract(this.velocity);
+                steer = steer.limit(this.maxForce * 3.0); // Tripled the force limit
+            }
         }
         
         return steer;
