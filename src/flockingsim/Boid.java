@@ -21,16 +21,16 @@ public class Boid {
     private double maxSpeed;
     private double maxForce;
     private double perceptionRadius;
-    // Standard flocking weights
-    private double separationWeight = 1.5;
-    private double alignmentWeight = 1.0;
-    private double cohesionWeight = 1.0;  
-    private double desiredSeparation = 25.0;
-    private double obstacleAvoidanceWeight = 4.0;  // Increased weight
-    private double obstacleSafetyRadius = 120.0;   // Increased safety radius
-    private double lookAheadDistance = 150.0;      // Look ahead distance for obstacle avoidance
+    private double separationWeight = 2.0;    
+    private double alignmentWeight = 1.1;    
+    private double cohesionWeight = 1.1;      
+    private double desiredSeparation = 30.0;   
+    private double obstacleAvoidanceWeight = 4.0;  
+    private double obstacleSafetyRadius = 120.0;
+    private double lookAheadDistance = 150.0;
     private double obstacleAvoidanceBuffer = 40.0;
     private double minSpeed = 2.0;
+    private double maxTurnRate = 30.0; 
     private static final double BOID_LENGTH = 7; // Length of the boid
     private static final double BOID_WIDTH = 9; // Width of the boid
     private static final double BOID_BACK_OFFSET = 5; // Offset from the back of the boid to the tip of the tail
@@ -86,8 +86,8 @@ public class Boid {
             this.velocity = this.velocity.normalize().multiply(this.maxSpeed);
         }
         // Ensure minimum speed
-        if (this.velocity.magnitude() < 3.0) {
-            this.velocity = this.velocity.normalize().multiply(3.0);
+        if (this.velocity.magnitude() < this.minSpeed) {
+            this.velocity = this.velocity.normalize().multiply(this.minSpeed);
         }
 
         // Calculate movement
@@ -107,12 +107,12 @@ public class Boid {
             while (turnNeeded > 180) turnNeeded -= 360;
             while (turnNeeded < -180) turnNeeded += 360;
             
-            // Limit turn rate
-            turnNeeded = Math.max(-30, Math.min(30, turnNeeded));
+            // Limit turn rate more gradually
+            turnNeeded = Math.max(-this.maxTurnRate, Math.min(this.maxTurnRate, turnNeeded));
             
             // Apply turn and move
             this.turn((int)turnNeeded);
-            this.move(moveDistance);
+            this.move(moveDistance, obstacles);
         }
     }
 
@@ -144,8 +144,9 @@ public class Boid {
     /**
      * Moves the boid forward by the specified distance.
      * @param distance The distance to move
+     * @param obstacles The list of obstacles to check against
      */
-    public void move(int distance) {
+    public void move(int distance, List<Rectangle> obstacles) {
         if (distance <= 0) return;
         
         // Calculate new position
@@ -154,26 +155,26 @@ public class Boid {
         CartesianCoordinate newPosition = this.position.add(displacement);
 
         // Check if new position is safe
-        if (isPositionSafe(newPosition)) {
+        if (isPositionSafe(newPosition, obstacles)) {
             this.position = newPosition;
             if (this.canvas != null) {
                 wrapPosition(this.canvas.getWidth(), this.canvas.getHeight());
             }
         } else {
-            // If position is not safe, reduce speed more aggressively
-            this.velocity = this.velocity.multiply(0.3); // Reduce speed by 70%
+            // If position is not safe (i.e., inside an obstacle), do not move.
+            // Optionally, apply a penalty like reducing speed or reversing velocity slightly.
+            this.velocity = this.velocity.multiply(0.3); // Reduce speed significantly
+            // Consider a small bounce-back or stop completely. For now, just stop and reduce speed.
         }
     }
 
-    private boolean isPositionSafe(CartesianCoordinate newPosition) {
-        for (Rectangle obstacle : this.getObstacles()) {
-            double distance = newPosition.distance(obstacle.getCenter()).magnitude();
-            // Add a larger buffer to the safety radius for position checking
-            if (distance < this.obstacleSafetyRadius * 1.5) {
-                return false;
+    private boolean isPositionSafe(CartesianCoordinate newPosition, List<Rectangle> obstacles) {
+        for (Rectangle obstacle : obstacles) {
+            if (obstacle.contains(newPosition)) {
+                return false; // Unsafe: inside an obstacle
             }
         }
-        return true;
+        return true; // Safe
     }
 
     /**
@@ -318,7 +319,9 @@ public class Boid {
             if (distance > 0 && distance < this.desiredSeparation) {
                 CartesianCoordinate diff = this.position.subtract(other.position);
                 diff = diff.normalize();
-                diff = diff.divide(distance); // Stronger when closer
+                // Make the force stronger when closer
+                double strength = Math.pow(1.0 - (distance / this.desiredSeparation), 2);
+                diff = diff.multiply(strength * this.maxSpeed);
                 steer = steer.add(diff);
                 count++;
             }
@@ -329,7 +332,7 @@ public class Boid {
             if (steer.magnitude() > 0) {
                 steer = steer.normalize().multiply(this.maxSpeed);
                 steer = steer.subtract(this.velocity);
-                steer = steer.limit(this.maxForce);
+                steer = steer.limit(this.maxForce * 1.5); // Increased force limit for separation
             }
         }
         return steer;
@@ -432,9 +435,9 @@ public class Boid {
                 CartesianCoordinate diff = this.position.subtract(obstacle.getCenter());
                 diff = diff.normalize();
                 
-                // Make the force much stronger when closer to the obstacle
-                double strength = Math.pow(1.0 - (distance / this.obstacleSafetyRadius), 3);
-                diff = diff.multiply(this.maxSpeed * strength * 3.0); // Tripled the strength
+                // Make the force more gradual
+                double strength = Math.pow(1.0 - (distance / this.obstacleSafetyRadius), 2);
+                diff = diff.multiply(this.maxSpeed * strength * 2.0); // Reduced multiplier
                 
                 steer = steer.add(diff);
                 count++;
@@ -445,11 +448,11 @@ public class Boid {
             // Average the avoidance forces
             steer = steer.divide(count);
             
-            // Scale to desired speed and make the force stronger
+            // Scale to desired speed and make the force smoother
             if (steer.magnitude() > 0) {
-                steer = steer.normalize().multiply(this.maxSpeed * 2.0); // Doubled speed
+                steer = steer.normalize().multiply(this.maxSpeed * 1.5); // Reduced multiplier
                 steer = steer.subtract(this.velocity);
-                steer = steer.limit(this.maxForce * 3.0); // Tripled the force limit
+                steer = steer.limit(this.maxForce * 2.0); // Reduced force limit
             }
         }
         
@@ -463,6 +466,7 @@ public class Boid {
     private List<Rectangle> getObstacles() {
         // This is a temporary solution. You should modify your architecture to properly pass obstacles to boids.
         // For now, we'll return an empty list to prevent compilation errors.
+        // THIS METHOD IS NO LONGER USED BY isPositionSafe if changes are correctly applied.
         return new ArrayList<>();
     }
 
@@ -488,6 +492,46 @@ public class Boid {
 
     public double getObstacleSafetyRadius() {
         return this.obstacleSafetyRadius;
+    }
+
+    /**
+     * Sets the maximum speed for this boid.
+     * @param maxSpeed The new maximum speed value
+     */
+    public void setMaxSpeed(double maxSpeed) {
+        this.maxSpeed = maxSpeed;
+    }
+
+    /**
+     * Sets the separation weight for this boid.
+     * @param weight The new separation weight
+     */
+    public void setSeparationWeight(double weight) {
+        this.separationWeight = weight;
+    }
+
+    /**
+     * Sets the alignment weight for this boid.
+     * @param weight The new alignment weight
+     */
+    public void setAlignmentWeight(double weight) {
+        this.alignmentWeight = weight;
+    }
+
+    /**
+     * Sets the cohesion weight for this boid.
+     * @param weight The new cohesion weight
+     */
+    public void setCohesionWeight(double weight) {
+        this.cohesionWeight = weight;
+    }
+
+    /**
+     * Sets the obstacle avoidance weight for this boid.
+     * @param weight The new obstacle avoidance weight
+     */
+    public void setObstacleAvoidanceWeight(double weight) {
+        this.obstacleAvoidanceWeight = weight;
     }
 
     /**

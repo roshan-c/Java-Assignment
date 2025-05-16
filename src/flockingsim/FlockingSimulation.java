@@ -12,6 +12,7 @@ import tools.Utils;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
+import flockingsim.SimulationGUI;
 /**
  * A FlockingSimulation is a simulation that contains a list of boids.
  * It can add, remove, and update boids.
@@ -25,12 +26,63 @@ public class FlockingSimulation {
     private Utils utils;
 
     // Define some simulation parameters
-    private static final double BOID_MAX_SPEED = 10.0; // Adjust as needed
+    private static final double BOID_MAX_SPEED = 10;
     private static final double BOID_MAX_FORCE = 0.1; // Adjust as needed (limits steering strength)
     private static final double BOID_PERCEPTION_RADIUS = 50.0; // Adjust as needed
     private static final int SIMULATION_DELAY_MS = 20; // Approx 50 FPS
     // Using a fixed reasonable dt often works well. Adjust if simulation seems too fast/slow.
     private static final double DELTA_TIME = 0.5; // Match dt to frame rate (adjust scale if needed)
+
+    /**
+     * Updates the maximum speed of all boids in the simulation.
+     * @param speed The desired speed value (0-30)
+     */
+    public void updateBoidSpeed(int speed) {
+        // Update speed for all boids
+        for (Boid boid : this.boids) {
+            boid.setMaxSpeed(speed);
+        }
+    }
+
+    /**
+     * Updates the separation weight for all boids.
+     * @param weight The new separation weight (0.0 to 0.5)
+     */
+    public void updateSeparationWeight(double weight) {
+        for (Boid boid : this.boids) {
+            boid.setSeparationWeight(weight);
+        }
+    }
+
+    /**
+     * Updates the alignment weight for all boids.
+     * @param weight The new alignment weight (0.0 to 0.5)
+     */
+    public void updateAlignmentWeight(double weight) {
+        for (Boid boid : this.boids) {
+            boid.setAlignmentWeight(weight);
+        }
+    }
+
+    /**
+     * Updates the cohesion weight for all boids.
+     * @param weight The new cohesion weight (0.0 to 0.5)
+     */
+    public void updateCohesionWeight(double weight) {
+        for (Boid boid : this.boids) {
+            boid.setCohesionWeight(weight);
+        }
+    }
+
+    /**
+     * Updates the obstacle avoidance weight for all boids.
+     * @param weight The new obstacle avoidance weight (0.0 to 4.0)
+     */
+    public void updateObstacleWeight(double weight) {
+        for (Boid boid : this.boids) {
+            boid.setObstacleAvoidanceWeight(weight);
+        }
+    }
 
     public FlockingSimulation(Canvas canvas, Utils utils) {
         this.canvas = canvas;
