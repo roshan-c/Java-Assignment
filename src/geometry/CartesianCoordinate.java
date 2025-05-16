@@ -70,4 +70,13 @@ public class CartesianCoordinate {
 		return new CartesianCoordinate(this.xPosition - other.xPosition, this.yPosition - other.yPosition);
 	}
 
+	/**
+	 * Calculates the dot product between this vector and another vector.
+	 * @param other The other vector to calculate the dot product with.
+	 * @return The dot product of the two vectors.
+	 */
+	public double dot(CartesianCoordinate other) {
+		return this.xPosition * other.xPosition + this.yPosition * other.yPosition;
+	}
+
 }

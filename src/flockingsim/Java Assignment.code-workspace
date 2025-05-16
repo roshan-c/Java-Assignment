@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		}
+	],
+	"settings": {
+		"java.project.sourcePaths": [
+			"src",
+			"geometry",
+			"flockingsim",
+			"drawing",
+			""
+		],
+		"cSpell.words": [
+			"boid",
+			"Boid"
+		]
+	}
+}

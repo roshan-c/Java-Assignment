@@ -20,11 +20,12 @@ import java.awt.event.WindowEvent;
 public class FlockingSimulation {
     private Canvas canvas;
     private ArrayList<Boid> boids; // array that holds all the boids in the simulation
+    private ArrayList<Rectangle> obstacles; // List to hold obstacles
     private boolean running;
     private Utils utils;
 
     // Define some simulation parameters
-    private static final double BOID_MAX_SPEED = 3.0; // Adjust as needed
+    private static final double BOID_MAX_SPEED = 10.0; // Adjust as needed
     private static final double BOID_MAX_FORCE = 0.1; // Adjust as needed (limits steering strength)
     private static final double BOID_PERCEPTION_RADIUS = 50.0; // Adjust as needed
     private static final int SIMULATION_DELAY_MS = 20; // Approx 50 FPS
@@ -35,6 +36,31 @@ public class FlockingSimulation {
         this.canvas = canvas;
         this.boids = new ArrayList<>();
         this.utils = utils;
+        this.obstacles = new ArrayList<>(); // Initialize obstacles list
+        initializeObstacles(); // Method to create the obstacles
+    }
+
+    /**
+     * Initializes the obstacles as per the assignment brief.
+     */
+    private void initializeObstacles() {
+        // Obstacles from the assignment brief
+        // size (dx=120, dy=80) with top-left corner at (100, 300)
+        // size (dx=80, dy=150) with top-left corner at (350, 200)
+        // size (dx=150, dy=120) with top-left corner at (550, 100)
+        // Note: The assignment brief uses (x,y) for top-left, and dx, dy for size.
+        // The y-coordinates in the brief might be typical Cartesian (y-up), 
+        // but screen coordinates are often y-down. Assuming y-down for now.
+
+        // Brief coordinates: (100, 300), (350, 200), (550, 100)
+        // My current draw has obstacles at: (100, 30), (350, 200), (550, 100) based on visual placement.
+        // I will use the coordinates from the draw method for consistency with current visuals,
+        // but these can be adjusted to match the brief exactly if needed.
+
+        // Rectangle(CartesianCoordinate topLeft, int dx, int dy, Canvas canvas)
+        this.obstacles.add(new Rectangle(new CartesianCoordinate(100, 30), 120, 80, this.canvas)); 
+        this.obstacles.add(new Rectangle(new CartesianCoordinate(350, 200), 80, 150, this.canvas));
+        this.obstacles.add(new Rectangle(new CartesianCoordinate(550, 100), 150, 120, this.canvas));
     }
 
     /**
@@ -55,12 +81,11 @@ public class FlockingSimulation {
      * Draws all boids in the simulation.
      * This method should be called every time the simulation updates. */
     public void draw() {
-        Rectangle rectangleSmall = new Rectangle(new CartesianCoordinate(100, 30), 80, 120);
-        Rectangle rectangleMedium = new Rectangle(new CartesianCoordinate(350, 200), 80, 150);
-        Rectangle rectangleLarge = new Rectangle(new CartesianCoordinate(550, 100), 150, 120);
-        rectangleSmall.draw();
-        rectangleMedium.draw();
-        rectangleLarge.draw();
+        // Draw obstacles first so boids appear on top
+        for (Rectangle obstacle : this.obstacles) {
+            obstacle.draw();
+        }
+        // Then draw boids
         for (Boid boid : this.boids) {
             boid.draw();
         }
@@ -70,44 +95,17 @@ public class FlockingSimulation {
     public void runSimulationLoop() {
         this.running = true;
         while (this.running) {
-            // --- Update Phase ---
-            // 1. Calculate flocking forces for all boids based on current state
-            // Create a snapshot of the current boids list to avoid concurrent modification issues
-            // if boids could theoretically be added/removed during force calculation (unlikely here but safer).
-            ArrayList<Boid> currentBoids = new ArrayList<>(this.boids);
-            for (Boid boid : currentBoids) {
-                boid.applyFlockingRules(currentBoids); // Pass the snapshot
+            // Update all boids
+            for (Boid boid : this.boids) {
+                boid.update(this.boids, this.obstacles);
             }
 
-            // 2. Update position and velocity for all boids.
-            //    First calculate forces, then determine turn/move based on physics,
-            //    then execute using turn(int) and move(int).
-            for (Boid boidAgent : this.boids) {
-                // Note: applyFlockingRules was already called above for all boids 
-                // using the snapshot `currentBoids`. This is correct.
-                
-                // Calculate the required turn angle and move distance for this frame
-                // based on the acceleration calculated in applyFlockingRules.
-                double[] turnMoveParams = boidAgent.calculateTurnAndMove(DELTA_TIME);
-                double angleToTurnDegrees = turnMoveParams[0];
-                double distanceToMove = turnMoveParams[1];
-
-                // Execute the turn and move using the integer-based methods as required
-                boidAgent.turn((int) angleToTurnDegrees); // Cast angle to int
-                // boidAgent.move((int) distanceToMove);    // Cast distance to int
-                // Handle movement using the accumulator method
-                boidAgent.accumulateAndMove(distanceToMove); // Pass the double distance
-            }
-
-            // --- Draw Phase (on EDT) ---
-            // Schedule drawing on EDT
+            // Draw everything
             SwingUtilities.invokeLater(() -> {
-                if (canvas != null) { // Check if canvas is initialized
+                if (canvas != null) {
                     canvas.clear();
-                    for (Boid boidToDraw : this.boids) { // Renamed from boid_to_draw
-                        boidToDraw.draw();
-                    }
-                    canvas.repaint(); // Request repaint
+                    draw();
+                    canvas.repaint();
                 }
             });
 
@@ -123,44 +121,56 @@ public class FlockingSimulation {
                 Canvas canvas = new Canvas(); // Canvas constructor sets preferred size 800x600
                 Utils utils = new Utils();
 
-                // 2. Create JFrame
-                JFrame frame = new JFrame("Flocking Simulator");
-                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                frame.getContentPane().add(canvas); // Add canvas to frame
-                frame.setSize(800, 600); // Set frame size
-                frame.setLocationRelativeTo(null); // Center the frame
-                frame.setVisible(true); // Make frame visible - layout happens here
-
-                // Original structure: setup simulation directly after frame is visible
-                // 6. Create FlockingSimulation instance
+                // 2. Create FlockingSimulation instance
                 FlockingSimulation simulation = new FlockingSimulation(canvas, utils);
 
-                // Add boids with the new parameters
-                int numBoids = 50; // Example number of boids
-                for (int i = 0; i < numBoids; i++) {
-                     // Ensure canvas dimensions are available if needed for random placement
-                     // It's safer to get width/height *after* frame is visible and laid out,
-                     // but using initial defaults or fixed values might be necessary if called before.
-                     // Here, assuming canvas has its default size or size set by frame.
-                     double startX = utils.randomDouble(0, canvas.getWidth());
-                     double startY = utils.randomDouble(0, canvas.getHeight());
-                     // Check for invalid dimensions just in case
-                     if (canvas.getWidth() <= 0) startX = 400;
-                     if (canvas.getHeight() <= 0) startY = 300;
+                // 3. Create the GUI Controller, which creates the JFrame
+                //    Pass the simulation and canvas to the controller
+                SimulationGUI controller = new SimulationGUI(simulation, canvas);
 
-                     simulation.addBoid(new Boid(canvas,
-                        // Random initial position
+                // Ensure frame is visible and layout is complete before getting dimensions
+                // (Frame visibility is handled by SimulationController constructor now)
+
+                // Add boids after the frame (and thus canvas) is likely initialized
+                int numBoids = 100; // Example number of boids
+                for (int i = 0; i < numBoids; i++) {
+                    // Get width/height *after* frame is visible (done by Controller)
+                    double startX, startY;
+                    boolean validPosition;
+                    int maxAttempts = 50; // Prevent infinite loops
+                    int attempts = 0;
+                    
+                    do {
+                        startX = utils.randomDouble(0, canvas.getWidth());
+                        startY = utils.randomDouble(0, canvas.getHeight());
+                        validPosition = true;
+                        
+                        // Check if position is inside any obstacle
+                        for (Rectangle obstacle : simulation.obstacles) {
+                            if (obstacle.contains(new CartesianCoordinate(startX, startY))) {
+                                validPosition = false;
+                                break;
+                            }
+                        }
+                        attempts++;
+                    } while (!validPosition && attempts < maxAttempts);
+                    
+                    // If we couldn't find a valid position after max attempts, use a safe default
+                    if (!validPosition) {
+                        startX = 400;
+                        startY = 300;
+                    }
+
+                    simulation.addBoid(new Boid(canvas,
                         new CartesianCoordinate(startX, startY),
-                        // Random initial velocity (magnitude between 0 and maxSpeed)
                         new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1)).normalize().multiply(utils.randomDouble(0, BOID_MAX_SPEED)),
-                        // Flocking parameters
                         BOID_MAX_SPEED,
                         BOID_MAX_FORCE,
                         BOID_PERCEPTION_RADIUS
                     ));
                 }
 
-                // 7. Start the simulation loop in a new thread
+                // 4. Start the simulation loop in a new thread
                 new Thread(() -> simulation.runSimulationLoop()).start();
             }
         });

@@ -21,10 +21,16 @@ public class Boid {
     private double maxSpeed;
     private double maxForce;
     private double perceptionRadius;
-    private double separationWeight = 1.0;
+    // Standard flocking weights
+    private double separationWeight = 1.5;
     private double alignmentWeight = 1.0;
     private double cohesionWeight = 1.0;
     private double desiredSeparation = 25.0;
+    private double obstacleAvoidanceWeight = 2.0;
+    private double obstacleSafetyRadius = 80.0;
+    private double obstacleLookAhead = 40.0;
+    private double obstacleAvoidanceBuffer = 40.0;
+    private double minSpeed = 2.0;
     private static final double BOID_LENGTH = 7; // Length of the boid
     private static final double BOID_WIDTH = 9; // Width of the boid
     private static final double BOID_BACK_OFFSET = 5; // Offset from the back of the boid to the tip of the tail
@@ -44,138 +50,126 @@ public class Boid {
         this.canvas = canvas;
         this.position = position;
         this.velocity = velocity;
-        this.acceleration = new CartesianCoordinate(0, 0); // Start with zero acceleration
+        this.acceleration = new CartesianCoordinate(0, 0);
         this.maxSpeed = maxSpeed;
         this.maxForce = maxForce;
         this.perceptionRadius = perceptionRadius;
-        this.penDown = true; // Or false if you don't want initial trails
-    }
-    
-    /**
-     * Calculates the required turn angle (degrees) and move distance based on 
-     * current velocity, acceleration, and time delta (dt).
-     * @param dt The time delta for this step.
-     * @return A double array containing [angleToTurnDegrees, distanceToMove].
-     */
-    public double[] calculateTurnAndMove(double dt) {
-        // Calculate target velocity based on current velocity and acceleration
-        CartesianCoordinate targetVelocity = this.velocity.add(this.acceleration.multiply(dt));
-
-        // Limit target velocity to maxSpeed
-        if (this.maxSpeed > 0 && targetVelocity.magnitude() > this.maxSpeed) {
-            targetVelocity = targetVelocity.normalize().multiply(this.maxSpeed);
-        }
-
-        // Calculate the angle difference between current and target velocity
-        double currentAngleRad = Math.atan2(this.velocity.getY(), this.velocity.getX());
-        double targetAngleRad = Math.atan2(targetVelocity.getY(), targetVelocity.getX());
-        
-        double angleDeltaRad = targetAngleRad - currentAngleRad;
-
-        // Normalize angle difference to be between -PI and PI
-        while (angleDeltaRad > Math.PI) angleDeltaRad -= 2 * Math.PI;
-        while (angleDeltaRad <= -Math.PI) angleDeltaRad += 2 * Math.PI;
-        
-        double angleDeltaDegrees = Math.toDegrees(angleDeltaRad);
-
-        // Calculate distance to move based on the magnitude of the target velocity
-        double distanceToMove = targetVelocity.magnitude() * dt;
-        
-        // If velocity was zero, the angle calculation might be unstable.
-        // In this case, don't turn, just move according to the new velocity magnitude.
-        if (this.velocity.magnitude() < 0.0001) {
-             angleDeltaDegrees = 0; 
-        }
-
-
-        return new double[]{angleDeltaDegrees, distanceToMove};
-    }
-
-    /**
-     * Accumulates the ideal movement distance and calls the internal move(int)
-     * method when the accumulated value reaches whole numbers.
-     * @param idealDistance The calculated ideal distance (double) for this step.
-     */
-    public void accumulateAndMove(double idealDistance) {
-        this.accumulatedMovement += idealDistance; // Add ideal distance to accumulator
-        int distanceToInt = (int) this.accumulatedMovement; // Get the whole number part
-
-        if (distanceToInt > 0) {
-            // Call the original move method with the integer part
-            this.move(distanceToInt);
-            // Subtract the integer part we just moved from the accumulator
-            this.accumulatedMovement -= distanceToInt;
-        }
-        // The remaining fractional part stays in accumulatedMovement for the next step
-    }
-
-    /**
-     * Moves the boid a certain distance in the direction of its current velocity.
-     * @param distanceToMove The integer distance to move the boid.
-     */
-    public void move(int distanceToMove) {
-        // If distance is negative, don't move
-        if (distanceToMove <= 0) {
-           return;
-        }
-        // If velocity is zero, don't move
-        if (this.velocity.magnitude() < 0.0001) {
-            return;
-        }
-        
-        CartesianCoordinate direction = this.velocity.normalize();
-        CartesianCoordinate displacement = direction.multiply(distanceToMove); // Use integer distance
-
-        // Update position
-        this.position = this.position.add(displacement); 
-
-        // Apply boundary conditions
-        if (this.canvas != null) { // Ensure canvas is available
-            wrapPosition(this.canvas.getWidth(), this.canvas.getHeight());
-        }
-    }
-
-    /**
-     * Turns the boid by rotating its velocity vector by a certain angle (in degrees).
-     * Results in slight inaccuracies in movement due to the use of integers, accumulateAndMove() mostly corrects this.
-     * @param angleToTurn The integer angle in degrees to turn the boid by.
-     */
-    public void turn(int angleToTurn) {
-        // Convert degrees to radians
-        double angleRad = Math.toRadians(angleToTurn);
-
-        // Get current velocity components
-        double vx = this.velocity.getX();
-        double vy = this.velocity.getY();
-
-        // Apply 2D rotation matrix
-        double cosTheta = Math.cos(angleRad);
-        double sinTheta = Math.sin(angleRad);
-
-        double newVx = vx * cosTheta - vy * sinTheta;
-        double newVy = vx * sinTheta + vy * cosTheta;
-
-        // Update the velocity vector
-        this.velocity = new CartesianCoordinate(newVx, newVy);
-    }
-
-    /**
-     * Puts the pen up to stop the boid from drawing trails (if trail drawing is implemented). */
-    public void putPenUp() {
-        this.penDown = false;
-    }
-
-    /**
-     * Puts the pen down to start drawing trails (if trail drawing is implemented). */
-    public void putPenDown() {
         this.penDown = true;
     }
 
     /**
-     * Checks if the pen is down.
-     * @return true if the pen is down, false otherwise. */
-    public boolean isPenDown() {
-        return this.penDown;
+     * Updates the boid's position and velocity based on flocking rules.
+     * @param allBoids List of all boids in the simulation
+     * @param obstacles List of obstacles in the simulation
+     */
+    public void update(List<Boid> allBoids, List<Rectangle> obstacles) {
+        // Reset acceleration
+        this.acceleration = new CartesianCoordinate(0, 0);
+
+        // Apply the three core flocking rules
+        CartesianCoordinate separation = calculateSeparationForce(allBoids);
+        CartesianCoordinate alignment = calculateAlignmentForce(allBoids);
+        CartesianCoordinate cohesion = calculateCohesionForce(allBoids);
+        CartesianCoordinate avoidance = calculateObstacleAvoidanceForce(obstacles);
+
+        // Apply weights
+        this.acceleration = this.acceleration.add(separation.multiply(separationWeight));
+        this.acceleration = this.acceleration.add(alignment.multiply(alignmentWeight));
+        this.acceleration = this.acceleration.add(cohesion.multiply(cohesionWeight));
+        this.acceleration = this.acceleration.add(avoidance.multiply(obstacleAvoidanceWeight));
+
+        // Update velocity
+        this.velocity = this.velocity.add(this.acceleration);
+        
+        // Limit speed
+        if (this.velocity.magnitude() > this.maxSpeed) {
+            this.velocity = this.velocity.normalize().multiply(this.maxSpeed);
+        }
+        // Ensure minimum speed
+        if (this.velocity.magnitude() < 3.0) {
+            this.velocity = this.velocity.normalize().multiply(3.0);
+        }
+
+        // Calculate movement
+        int moveDistance = (int) this.velocity.magnitude();
+        if (moveDistance > 0) {
+            // Get current heading
+            double currentHeading = Math.toDegrees(Math.atan2(this.velocity.getY(), this.velocity.getX()));
+            
+            // Calculate desired heading
+            CartesianCoordinate desiredDirection = this.velocity.normalize();
+            double desiredHeading = Math.toDegrees(Math.atan2(desiredDirection.getY(), desiredDirection.getX()));
+            
+            // Calculate turn needed (shortest path)
+            double turnNeeded = desiredHeading - currentHeading;
+            
+            // Normalize turn to [-180, 180]
+            while (turnNeeded > 180) turnNeeded -= 360;
+            while (turnNeeded < -180) turnNeeded += 360;
+            
+            // Limit turn rate
+            turnNeeded = Math.max(-30, Math.min(30, turnNeeded));
+            
+            // Apply turn and move
+            this.turn((int)turnNeeded);
+            this.move(moveDistance);
+        }
+    }
+
+    /**
+     * Turns the boid by the specified angle in degrees.
+     * @param angle The angle to turn in degrees
+     */
+    public void turn(int angle) {
+        // Convert angle to radians
+        double angleRad = Math.toRadians(angle);
+        
+        // Calculate new velocity using rotation matrix
+        double cosTheta = Math.cos(angleRad);
+        double sinTheta = Math.sin(angleRad);
+        
+        double newVx = this.velocity.getX() * cosTheta - this.velocity.getY() * sinTheta;
+        double newVy = this.velocity.getX() * sinTheta + this.velocity.getY() * cosTheta;
+        
+        // Update velocity
+        this.velocity = new CartesianCoordinate(newVx, newVy);
+        
+        // Ensure velocity maintains its magnitude
+        double currentSpeed = this.velocity.magnitude();
+        if (currentSpeed > 0) {
+            this.velocity = this.velocity.normalize().multiply(currentSpeed);
+        }
+    }
+
+    /**
+     * Moves the boid forward by the specified distance.
+     * @param distance The distance to move
+     */
+    public void move(int distance) {
+        if (distance <= 0) return;
+        
+        // Calculate new position
+        CartesianCoordinate direction = this.velocity.normalize();
+        CartesianCoordinate displacement = direction.multiply(distance);
+        CartesianCoordinate newPosition = this.position.add(displacement);
+
+        // Check if new position is safe
+        if (isPositionSafe(newPosition)) {
+            this.position = newPosition;
+            if (this.canvas != null) {
+                wrapPosition(this.canvas.getWidth(), this.canvas.getHeight());
+            }
+        }
+    }
+
+    private boolean isPositionSafe(CartesianCoordinate newPosition) {
+        for (Rectangle obstacle : this.getObstacles()) {
+            double distance = newPosition.distance(obstacle.getCenter()).magnitude();
+            if (distance < this.obstacleSafetyRadius) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -183,35 +177,29 @@ public class Boid {
      * For debugging, this draws a small cross at the boid's position.
      */
     public void draw() {
+        if (!this.penDown) return;
+
         CartesianCoordinate currentPosition = this.position;
         CartesianCoordinate vel = this.velocity;
 
-        // Handle zero velocity for drawing: either draw a default shape or use a default orientation
-        double magnitudeSq = vel.getX() * vel.getX() + vel.getY() * vel.getY();
-        CartesianCoordinate normVelocity;
-
-        if (magnitudeSq < 0.00001) { // If velocity is very close to zero make it default to facing right
-            normVelocity = new CartesianCoordinate(1, 0); 
-        } else {
-            normVelocity = vel.normalize();
+        // Handle zero velocity
+        if (vel.magnitude() < 0.0001) {
+            vel = new CartesianCoordinate(1, 0);
         }
 
+        CartesianCoordinate normVelocity = vel.normalize();
         CartesianCoordinate perpVelocity = normVelocity.perpendicular();
 
-        CartesianCoordinate frontPosition = currentPosition.add(normVelocity    .multiply(BOID_LENGTH));
+        // Calculate triangle points
+        CartesianCoordinate frontPosition = currentPosition.add(normVelocity.multiply(7));
+        CartesianCoordinate baseCenter = currentPosition.add(normVelocity.multiply(-5));
+        CartesianCoordinate leftPosition = baseCenter.add(perpVelocity.multiply(4.5));
+        CartesianCoordinate rightPosition = baseCenter.add(perpVelocity.multiply(-4.5));
 
-        // Calculate the center of the base of the triangle (behind the current position)
-        CartesianCoordinate baseCenter = currentPosition.add(normVelocity.multiply(-BOID_BACK_OFFSET));
-        
-        CartesianCoordinate leftPosition = baseCenter.add(perpVelocity.multiply(BOID_WIDTH / 2.0));
-        CartesianCoordinate rightPosition = baseCenter.add(perpVelocity.multiply(-BOID_WIDTH / 2.0)); // Or baseCenter.subtract(perpVelocity.multiply(BOID_WIDTH / 2.0))
-
-        // Draw the triangle outline
-        if (this.penDown) { // Only draw if pen is down,
-            this.canvas.drawLineBetweenPoints(frontPosition, leftPosition);
-            this.canvas.drawLineBetweenPoints(leftPosition, rightPosition);
-            this.canvas.drawLineBetweenPoints(rightPosition, frontPosition);
-        }
+        // Draw the triangle
+        this.canvas.drawLineBetweenPoints(frontPosition, leftPosition);
+        this.canvas.drawLineBetweenPoints(leftPosition, rightPosition);
+        this.canvas.drawLineBetweenPoints(rightPosition, frontPosition);
     }
 
     /**
@@ -266,26 +254,30 @@ public class Boid {
      * to the boid's acceleration.
      * This method should be called once per simulation step BEFORE update().
      * @param allBoids List of all boids in the simulation.
+     * @param obstacles List of obstacles in the simulation.
      */
-    public void applyFlockingRules(List<Boid> allBoids) {
+    public void applyFlockingRules(List<Boid> allBoids, List<Rectangle> obstacles) {
         // It's often better to clear acceleration each frame before applying forces
-        this.acceleration = new CartesianCoordinate(0, 0); 
+        this.acceleration = new CartesianCoordinate(0, 0);
 
         ArrayList<Boid> neighbors = getNeighbors(allBoids);
 
         CartesianCoordinate separationForce = calculateSeparationForce(neighbors);
         CartesianCoordinate alignmentForce = calculateAlignmentForce(neighbors);
         CartesianCoordinate cohesionForce = calculateCohesionForce(neighbors);
+        CartesianCoordinate avoidanceForce = calculateObstacleAvoidanceForce(obstacles);
 
         // Apply weights
         separationForce = separationForce.multiply(separationWeight);
         alignmentForce = alignmentForce.multiply(alignmentWeight);
         cohesionForce = cohesionForce.multiply(cohesionWeight);
+        avoidanceForce = avoidanceForce.multiply(obstacleAvoidanceWeight);
 
         // Add forces to acceleration
         this.acceleration = this.acceleration.add(separationForce);
         this.acceleration = this.acceleration.add(alignmentForce);
         this.acceleration = this.acceleration.add(cohesionForce);
+        this.acceleration = this.acceleration.add(avoidanceForce);
 
         // Optional: Limit total acceleration if needed, though limiting individual
         // steering forces (as done in calculate methods) is more common.
@@ -302,10 +294,9 @@ public class Boid {
     private ArrayList<Boid> getNeighbors(List<Boid> allBoids) {
         ArrayList<Boid> neighbors = new ArrayList<>();
         for (Boid other : allBoids) {
-            if (other != this) { // Don't compare with self
+            if (other != this) {
                 double distance = this.position.distance(other.position).magnitude();
-                // Check if within perception radius
-                if (distance > 0 && distance < this.perceptionRadius) { // distance > 0 avoids self comparison if positions are identical
+                if (distance > 0 && distance < this.perceptionRadius) {
                     neighbors.add(other);
                 }
             }
@@ -319,31 +310,28 @@ public class Boid {
      * @param neighbors List of neighboring boids.
      * @return Separation force vector.
      */
-    private CartesianCoordinate calculateSeparationForce(ArrayList<Boid> neighbors) {
+    private CartesianCoordinate calculateSeparationForce(List<Boid> neighbors) {
         CartesianCoordinate steer = new CartesianCoordinate(0, 0);
         int count = 0;
+        
         for (Boid other : neighbors) {
             double distance = this.position.distance(other.position).magnitude();
             if (distance > 0 && distance < this.desiredSeparation) {
-                // Calculate vector pointing away from neighbor, weighted by distance
                 CartesianCoordinate diff = this.position.subtract(other.position);
                 diff = diff.normalize();
-                diff = diff.divide(distance); // Weight by distance (closer = stronger)
+                diff = diff.divide(distance); // Stronger when closer
                 steer = steer.add(diff);
                 count++;
             }
         }
-
+        
         if (count > 0) {
-            steer = steer.divide(count); // Average the force
-        }
-
-        // If the steering force is significant, scale it to maxSpeed and apply maxForce limit
-        if (steer.magnitude() > 0) {
-            steer = steer.normalize();
-            steer = steer.multiply(this.maxSpeed);
-            steer = steer.subtract(this.velocity); // Steering force = desired velocity - current velocity
-            steer = steer.limit(this.maxForce);    // Limit the magnitude of the steering force
+            steer = steer.divide(count);
+            if (steer.magnitude() > 0) {
+                steer = steer.normalize().multiply(this.maxSpeed);
+                steer = steer.subtract(this.velocity);
+                steer = steer.limit(this.maxForce);
+            }
         }
         return steer;
     }
@@ -354,29 +342,27 @@ public class Boid {
      * @param neighbors List of neighboring boids.
      * @return Alignment force vector.
      */
-    private CartesianCoordinate calculateAlignmentForce(ArrayList<Boid> neighbors) {
+    private CartesianCoordinate calculateAlignmentForce(List<Boid> neighbors) {
         CartesianCoordinate sumVelocities = new CartesianCoordinate(0, 0);
         int count = 0;
+        
         for (Boid other : neighbors) {
-             // Check distance again or assume neighbors list is already filtered by perceptionRadius
-             double distance = this.position.distance(other.position).magnitude();
-             if (distance > 0 && distance < this.perceptionRadius) { // Ensure within radius
+            double distance = this.position.distance(other.position).magnitude();
+            if (distance < this.perceptionRadius) {
                 sumVelocities = sumVelocities.add(other.velocity);
                 count++;
-             }
+            }
         }
-
+        
         if (count > 0) {
-            sumVelocities = sumVelocities.divide(count); // Average velocity
-            // Steer towards the average velocity
-            sumVelocities = sumVelocities.normalize();
-            sumVelocities = sumVelocities.multiply(this.maxSpeed);
-            CartesianCoordinate steer = sumVelocities.subtract(this.velocity); // Steering force = desired - current
-            steer = steer.limit(this.maxForce); // Limit force
-            return steer;
-        } else {
-            return new CartesianCoordinate(0, 0); // No neighbors, no alignment force
+            sumVelocities = sumVelocities.divide(count);
+            if (sumVelocities.magnitude() > 0) {
+                sumVelocities = sumVelocities.normalize().multiply(this.maxSpeed);
+                CartesianCoordinate steer = sumVelocities.subtract(this.velocity);
+                return steer.limit(this.maxForce);
+            }
         }
+        return new CartesianCoordinate(0, 0);
     }
 
      /**
@@ -385,24 +371,23 @@ public class Boid {
      * @param neighbors List of neighboring boids.
      * @return Cohesion force vector.
      */
-    private CartesianCoordinate calculateCohesionForce(ArrayList<Boid> neighbors) {
+    private CartesianCoordinate calculateCohesionForce(List<Boid> neighbors) {
         CartesianCoordinate sumPositions = new CartesianCoordinate(0, 0);
         int count = 0;
+        
         for (Boid other : neighbors) {
-            // Check distance again or assume neighbors list is already filtered by perceptionRadius
             double distance = this.position.distance(other.position).magnitude();
-             if (distance > 0 && distance < this.perceptionRadius) { // Ensure within radius
+            if (distance < this.perceptionRadius) {
                 sumPositions = sumPositions.add(other.position);
                 count++;
-             }
+            }
         }
-
+        
         if (count > 0) {
-            sumPositions = sumPositions.divide(count); // Average position (center of mass)
-            return seek(sumPositions); // Calculate steering force towards the target position
-        } else {
-            return new CartesianCoordinate(0, 0); // No neighbors, no cohesion force
+            CartesianCoordinate centerOfMass = sumPositions.divide(count);
+            return seek(centerOfMass);
         }
+        return new CartesianCoordinate(0, 0);
     }
 
     /**
@@ -411,14 +396,86 @@ public class Boid {
      * @return The steering force vector.
      */
     private CartesianCoordinate seek(CartesianCoordinate target) {
-        CartesianCoordinate desired = target.subtract(this.position); // Vector from current position to target
+        CartesianCoordinate desired = target.subtract(this.position);
         desired = desired.normalize();
         desired = desired.multiply(this.maxSpeed);
-
-        // Steering force = Desired Velocity - Current Velocity
+        
         CartesianCoordinate steer = desired.subtract(this.velocity);
-        steer = steer.limit(this.maxForce); // Limit the steering force
+        return steer.limit(this.maxForce);
+    }
+
+    /**
+     * Calculates the obstacle avoidance steering force.
+     * Steers away from nearby obstacles.
+     * @param obstacles List of obstacles in the simulation.
+     * @return Avoidance force vector.
+     */
+    private CartesianCoordinate calculateObstacleAvoidanceForce(List<Rectangle> obstacles) {
+        CartesianCoordinate steer = new CartesianCoordinate(0, 0);
+        
+        for (Rectangle obstacle : obstacles) {
+            double distance = this.position.distance(obstacle.getCenter()).magnitude();
+            if (distance < this.obstacleSafetyRadius) {
+                CartesianCoordinate away = this.position.subtract(obstacle.getCenter());
+                away = away.normalize();
+                double strength = (this.obstacleSafetyRadius - distance) / this.obstacleSafetyRadius;
+                away = away.multiply(this.maxSpeed * strength);
+                steer = steer.add(away);
+            }
+        }
+        
+        if (steer.magnitude() > 0) {
+            steer = steer.normalize().multiply(this.maxSpeed);
+            steer = steer.subtract(this.velocity);
+            steer = steer.limit(this.maxForce * 2.0);
+        }
+        
         return steer;
+    }
+
+    /**
+     * Gets the list of obstacles from the simulation.
+     * This is a temporary solution - you should modify your architecture to properly pass obstacles to boids.
+     */
+    private List<Rectangle> getObstacles() {
+        // This is a temporary solution. You should modify your architecture to properly pass obstacles to boids.
+        // For now, we'll return an empty list to prevent compilation errors.
+        return new ArrayList<>();
+    }
+
+    // later make another obstacles class that rectangle inherits from
+    private CartesianCoordinate avoidObstacles(List<Rectangle> obstacles) {
+        CartesianCoordinate steer = new CartesianCoordinate(0, 0);
+        for (Rectangle obstacle : obstacles) {
+            if (obstacle.getPosition().distance(this.position).magnitude() < obstacle.getRadius()) {
+                steer = steer.add(obstacle.getNormal(this.position));
+            }
+        }
+        return steer;
+    }
+
+    // Add getter methods
+    public CartesianCoordinate getPosition() {
+        return this.position;
+    }
+
+    public CartesianCoordinate getVelocity() {
+        return this.velocity;
+    }
+
+    public double getObstacleSafetyRadius() {
+        return this.obstacleSafetyRadius;
+    }
+
+    /**
+     * Reduces the boid's speed to help with obstacle avoidance.
+     * Ensures speed doesn't go below minimum threshold.
+     */
+    public void reduceSpeed() {
+        double currentSpeed = this.velocity.magnitude();
+        if (currentSpeed > this.minSpeed) {
+            this.velocity = this.velocity.multiply(0.7); // Less aggressive speed reduction
+        }
     }
 
     // --- Getters for external access if needed (e.g., for GUI tuning) ---
