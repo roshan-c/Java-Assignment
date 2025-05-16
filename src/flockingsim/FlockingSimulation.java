@@ -23,6 +23,14 @@ public class FlockingSimulation {
     private boolean running;
     private Utils utils;
 
+    // Define some simulation parameters
+    private static final double BOID_MAX_SPEED = 3.0; // Adjust as needed
+    private static final double BOID_MAX_FORCE = 0.1; // Adjust as needed (limits steering strength)
+    private static final double BOID_PERCEPTION_RADIUS = 50.0; // Adjust as needed
+    private static final int SIMULATION_DELAY_MS = 20; // Approx 50 FPS
+    // Using a fixed reasonable dt often works well. Adjust if simulation seems too fast/slow.
+    private static final double DELTA_TIME = 0.5; // Match dt to frame rate (adjust scale if needed)
+
     public FlockingSimulation(Canvas canvas, Utils utils) {
         this.canvas = canvas;
         this.boids = new ArrayList<>();
@@ -44,18 +52,15 @@ public class FlockingSimulation {
     }
 
     /**
-     * Updates the position of all boids in the simulation.
-     * This method should be called every time the simulation updates. */
-    public void update() {
-        for (Boid boid : this.boids) {
-            boid.update(1); // Assuming dt is 1 for simplicity
-        }
-    }
-
-    /**
      * Draws all boids in the simulation.
      * This method should be called every time the simulation updates. */
     public void draw() {
+        Rectangle rectangleSmall = new Rectangle(new CartesianCoordinate(100, 30), 80, 120);
+        Rectangle rectangleMedium = new Rectangle(new CartesianCoordinate(350, 200), 80, 150);
+        Rectangle rectangleLarge = new Rectangle(new CartesianCoordinate(550, 100), 150, 120);
+        rectangleSmall.draw();
+        rectangleMedium.draw();
+        rectangleLarge.draw();
         for (Boid boid : this.boids) {
             boid.draw();
         }
@@ -65,11 +70,36 @@ public class FlockingSimulation {
     public void runSimulationLoop() {
         this.running = true;
         while (this.running) {
-            // Update boid logic (can be off EDT)
-            for (Boid boidAgent : this.boids) { // Renamed from boid_agent
-                boidAgent.update(1); // Assuming dt is 1 for simplicity
+            // --- Update Phase ---
+            // 1. Calculate flocking forces for all boids based on current state
+            // Create a snapshot of the current boids list to avoid concurrent modification issues
+            // if boids could theoretically be added/removed during force calculation (unlikely here but safer).
+            ArrayList<Boid> currentBoids = new ArrayList<>(this.boids);
+            for (Boid boid : currentBoids) {
+                boid.applyFlockingRules(currentBoids); // Pass the snapshot
             }
 
+            // 2. Update position and velocity for all boids.
+            //    First calculate forces, then determine turn/move based on physics,
+            //    then execute using turn(int) and move(int).
+            for (Boid boidAgent : this.boids) {
+                // Note: applyFlockingRules was already called above for all boids 
+                // using the snapshot `currentBoids`. This is correct.
+                
+                // Calculate the required turn angle and move distance for this frame
+                // based on the acceleration calculated in applyFlockingRules.
+                double[] turnMoveParams = boidAgent.calculateTurnAndMove(DELTA_TIME);
+                double angleToTurnDegrees = turnMoveParams[0];
+                double distanceToMove = turnMoveParams[1];
+
+                // Execute the turn and move using the integer-based methods as required
+                boidAgent.turn((int) angleToTurnDegrees); // Cast angle to int
+                // boidAgent.move((int) distanceToMove);    // Cast distance to int
+                // Handle movement using the accumulator method
+                boidAgent.accumulateAndMove(distanceToMove); // Pass the double distance
+            }
+
+            // --- Draw Phase (on EDT) ---
             // Schedule drawing on EDT
             SwingUtilities.invokeLater(() -> {
                 if (canvas != null) { // Check if canvas is initialized
@@ -77,11 +107,12 @@ public class FlockingSimulation {
                     for (Boid boidToDraw : this.boids) { // Renamed from boid_to_draw
                         boidToDraw.draw();
                     }
-                    canvas.repaint();
+                    canvas.repaint(); // Request repaint
                 }
             });
 
-            this.utils.pause(50); // Pause in the simulation thread
+            // Pause to control simulation speed
+            this.utils.pause(SIMULATION_DELAY_MS);
         }
     }
 
@@ -104,22 +135,31 @@ public class FlockingSimulation {
                 // 6. Create FlockingSimulation instance
                 FlockingSimulation simulation = new FlockingSimulation(canvas, utils);
 
-                // Example: Add a boid with fixed coordinates for testing (original values)
-                int fixedX = 400; 
-                int fixedY = 300; 
-                simulation.addBoid(new Boid(canvas, new CartesianCoordinate(fixedX, fixedY), new CartesianCoordinate(0.5, 0.5)));
+                // Add boids with the new parameters
+                int numBoids = 50; // Example number of boids
+                for (int i = 0; i < numBoids; i++) {
+                     // Ensure canvas dimensions are available if needed for random placement
+                     // It's safer to get width/height *after* frame is visible and laid out,
+                     // but using initial defaults or fixed values might be necessary if called before.
+                     // Here, assuming canvas has its default size or size set by frame.
+                     double startX = utils.randomDouble(0, canvas.getWidth());
+                     double startY = utils.randomDouble(0, canvas.getHeight());
+                     // Check for invalid dimensions just in case
+                     if (canvas.getWidth() <= 0) startX = 400;
+                     if (canvas.getHeight() <= 0) startY = 300;
 
-                // Add some random boids using current canvas dimensions
-                simulation.addBoid(new Boid(canvas, 
-                    new CartesianCoordinate(utils.randomInt(0, canvas.getWidth()), utils.randomInt(0, canvas.getHeight())),
-                    new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1))));
-                simulation.addBoid(new Boid(canvas, 
-                    new CartesianCoordinate(utils.randomInt(0, canvas.getWidth()), utils.randomInt(0, canvas.getHeight())),
-                    new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1))));
-                simulation.addBoid(new Boid(canvas, 
-                    new CartesianCoordinate(utils.randomInt(0, canvas.getWidth()), utils.randomInt(0, canvas.getHeight())),
-                    new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1))));
-               
+                     simulation.addBoid(new Boid(canvas,
+                        // Random initial position
+                        new CartesianCoordinate(startX, startY),
+                        // Random initial velocity (magnitude between 0 and maxSpeed)
+                        new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1)).normalize().multiply(utils.randomDouble(0, BOID_MAX_SPEED)),
+                        // Flocking parameters
+                        BOID_MAX_SPEED,
+                        BOID_MAX_FORCE,
+                        BOID_PERCEPTION_RADIUS
+                    ));
+                }
+
                 // 7. Start the simulation loop in a new thread
                 new Thread(() -> simulation.runSimulationLoop()).start();
             }
