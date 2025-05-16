@@ -37,14 +37,17 @@ public class CartesianCoordinate {
 	}
 
 	public CartesianCoordinate divide(double scalar) {
+		if (Math.abs(scalar) < 0.000001) { // Check if scalar is close to zero
+			return new CartesianCoordinate(0, 0); // Avoid division by zero, return zero vector
+		}
 		return new CartesianCoordinate(this.xPosition / scalar, this.yPosition / scalar);
 	}	
 
 	// Used to normalize the vector to a unit vector (represents direction)
 	public CartesianCoordinate normalize() {
-		double magnitude = Math.sqrt(this.xPosition * this.xPosition + this.yPosition * this.yPosition);
-		if (magnitude == 0) {
-			return new CartesianCoordinate(0, 0);
+		double magnitude = this.magnitude(); // Use the existing magnitude() method for consistency
+		if (magnitude < 0.000001) { // Use a small epsilon to check for effectively zero magnitude
+			return new CartesianCoordinate(0, 0); // Return zero vector if magnitude is negligible
 		}
 		return new CartesianCoordinate(this.xPosition / magnitude, this.yPosition / magnitude);
 	}

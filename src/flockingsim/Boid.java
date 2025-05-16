@@ -2,6 +2,7 @@ package flockingsim;
 
 import java.util.ArrayList;
 import java.util.List; // Use List interface
+import java.awt.Color;
 
 import drawing.Canvas;
 import geometry.CartesianCoordinate;
@@ -28,13 +29,11 @@ public class Boid {
     private double obstacleAvoidanceWeight = 4.0;  
     private double obstacleSafetyRadius = 120.0;
     private double lookAheadDistance = 150.0;
-    private double obstacleAvoidanceBuffer = 40.0;
     private double minSpeed = 2.0;
     private double maxTurnRate = 30.0; 
     private static final double BOID_LENGTH = 7; // Length of the boid
     private static final double BOID_WIDTH = 9; // Width of the boid
     private static final double BOID_BACK_OFFSET = 5; // Offset from the back of the boid to the tip of the tail
-    private double accumulatedMovement = 0.0; // field for fractional movement (removes precision issues with integer movement)
 
 
     /**
@@ -81,13 +80,23 @@ public class Boid {
         // Update velocity
         this.velocity = this.velocity.add(this.acceleration);
         
-        // Limit speed
-        if (this.velocity.magnitude() > this.maxSpeed) {
-            this.velocity = this.velocity.normalize().multiply(this.maxSpeed);
-        }
-        // Ensure minimum speed
-        if (this.velocity.magnitude() < this.minSpeed) {
-            this.velocity = this.velocity.normalize().multiply(this.minSpeed);
+        // Speed control
+        double currentSpeed = this.velocity.magnitude();
+
+        if (this.maxSpeed <= 0.001) { // Using a small epsilon for "effectively zero"
+            this.velocity = new CartesianCoordinate(0, 0);
+        } else {
+            if (currentSpeed > this.maxSpeed) {
+                this.velocity = this.velocity.normalize().multiply(this.maxSpeed);
+            } else if (currentSpeed < this.minSpeed && currentSpeed > 0.001) { // currentSpeed > 0.001 to avoid normalizing zero vector and for meaningful check
+                // Only apply minSpeed if it's not trying to exceed maxSpeed
+                if (this.minSpeed <= this.maxSpeed) {
+                    this.velocity = this.velocity.normalize().multiply(this.minSpeed);
+                }
+                // If minSpeed > maxSpeed, currentSpeed is already capped by maxSpeed if it was higher,
+                // or it's naturally between 0 and maxSpeed. In this state, it will keep its current speed.
+                // (Implicitly, if currentSpeed is 0, and maxSpeed > 0, it stays 0 until next acceleration)
+            }
         }
 
         // Calculate movement
@@ -162,9 +171,8 @@ public class Boid {
             }
         } else {
             // If position is not safe (i.e., inside an obstacle), do not move.
-            // Optionally, apply a penalty like reducing speed or reversing velocity slightly.
-            this.velocity = this.velocity.multiply(0.3); // Reduce speed significantly
-            // Consider a small bounce-back or stop completely. For now, just stop and reduce speed.
+            // Make the boid "bounce" back slightly by reversing its velocity at reduced speed.
+            this.velocity = this.velocity.multiply(-0.5); 
         }
     }
 
@@ -183,28 +191,25 @@ public class Boid {
      */
     public void draw() {
         if (!this.penDown) return;
+        if (this.canvas == null) return; 
+
+        Color boidColor = Color.BLACK; // All boids will be black
 
         CartesianCoordinate currentPosition = this.position;
         CartesianCoordinate vel = this.velocity;
-
-        // Handle zero velocity
         if (vel.magnitude() < 0.0001) {
             vel = new CartesianCoordinate(1, 0);
         }
-
         CartesianCoordinate normVelocity = vel.normalize();
         CartesianCoordinate perpVelocity = normVelocity.perpendicular();
-
-        // Calculate triangle points
-        CartesianCoordinate frontPosition = currentPosition.add(normVelocity.multiply(7));
-        CartesianCoordinate baseCenter = currentPosition.add(normVelocity.multiply(-5));
-        CartesianCoordinate leftPosition = baseCenter.add(perpVelocity.multiply(4.5));
-        CartesianCoordinate rightPosition = baseCenter.add(perpVelocity.multiply(-4.5));
-
-        // Draw the triangle
-        this.canvas.drawLineBetweenPoints(frontPosition, leftPosition);
-        this.canvas.drawLineBetweenPoints(leftPosition, rightPosition);
-        this.canvas.drawLineBetweenPoints(rightPosition, frontPosition);
+        CartesianCoordinate frontPosition = currentPosition.add(normVelocity.multiply(BOID_LENGTH));
+        CartesianCoordinate baseCenter = currentPosition.add(normVelocity.multiply(-BOID_BACK_OFFSET));
+        CartesianCoordinate leftPosition = baseCenter.add(perpVelocity.multiply(BOID_WIDTH / 2.0));
+        CartesianCoordinate rightPosition = baseCenter.add(perpVelocity.multiply(-BOID_WIDTH / 2.0));
+        
+        this.canvas.drawLineBetweenPoints(frontPosition, leftPosition, boidColor);
+        this.canvas.drawLineBetweenPoints(leftPosition, rightPosition, boidColor);
+        this.canvas.drawLineBetweenPoints(rightPosition, frontPosition, boidColor);
     }
 
     /**
@@ -437,7 +442,7 @@ public class Boid {
                 
                 // Make the force more gradual
                 double strength = Math.pow(1.0 - (distance / this.obstacleSafetyRadius), 2);
-                diff = diff.multiply(this.maxSpeed * strength * 2.0); // Reduced multiplier
+                diff = diff.multiply(this.maxSpeed * strength * 3.0); // Increased multiplier from 2.0 to 3.0
                 
                 steer = steer.add(diff);
                 count++;
@@ -450,34 +455,12 @@ public class Boid {
             
             // Scale to desired speed and make the force smoother
             if (steer.magnitude() > 0) {
-                steer = steer.normalize().multiply(this.maxSpeed * 1.5); // Reduced multiplier
+                steer = steer.normalize().multiply(this.maxSpeed * 2.5); // Increased multiplier from 1.5 to 2.5
                 steer = steer.subtract(this.velocity);
-                steer = steer.limit(this.maxForce * 2.0); // Reduced force limit
+                steer = steer.limit(this.maxForce * 3.0); // Increased force limit multiplier from 2.0 to 3.0
             }
         }
         
-        return steer;
-    }
-
-    /**
-     * Gets the list of obstacles from the simulation.
-     * This is a temporary solution - you should modify your architecture to properly pass obstacles to boids.
-     */
-    private List<Rectangle> getObstacles() {
-        // This is a temporary solution. You should modify your architecture to properly pass obstacles to boids.
-        // For now, we'll return an empty list to prevent compilation errors.
-        // THIS METHOD IS NO LONGER USED BY isPositionSafe if changes are correctly applied.
-        return new ArrayList<>();
-    }
-
-    // later make another obstacles class that rectangle inherits from
-    private CartesianCoordinate avoidObstacles(List<Rectangle> obstacles) {
-        CartesianCoordinate steer = new CartesianCoordinate(0, 0);
-        for (Rectangle obstacle : obstacles) {
-            if (obstacle.getPosition().distance(this.position).magnitude() < obstacle.getRadius()) {
-                steer = steer.add(obstacle.getNormal(this.position));
-            }
-        }
         return steer;
     }
 
@@ -539,14 +522,9 @@ public class Boid {
      * Ensures speed doesn't go below minimum threshold.
      */
     public void reduceSpeed() {
-        double currentSpeed = this.velocity.magnitude();
-        if (currentSpeed > this.minSpeed) {
-            this.velocity = this.velocity.multiply(0.7); // Less aggressive speed reduction
+        double currentSpeedVal = this.velocity.magnitude();
+        if (currentSpeedVal > this.minSpeed) {
+            this.velocity = this.velocity.multiply(0.7);
         }
     }
-
-    // --- Getters for external access if needed (e.g., for GUI tuning) ---
-    // public CartesianCoordinate getPosition() { return position; }
-    // public CartesianCoordinate getVelocity() { return velocity; }
-    // Add setters for weights if you implement GUI controls later
 }

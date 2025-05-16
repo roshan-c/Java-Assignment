@@ -54,10 +54,7 @@ public class Rectangle {
      * Uses half of the smaller dimension.
      * @return double representing the approximate radius.
      */
-    public double getRadius() {
-        // Use half of the smaller dimension as a simple radius approximation
-        return Math.min(this.dx, this.dy) / 2.0;
-    }
+  
 
     /**
      * Calculates a more accurate avoidance "radius" based on the distance
@@ -96,4 +93,24 @@ public class Rectangle {
         double ry = this.topLeft.getY();
         return px >= rx && px <= rx + this.dx && py >= ry && py <= ry + this.dy;
     }
+
+    public int getDx() {
+        return this.dx;
+    }
+    
+    public int getDy() {
+        return this.dy;
+    }
+    
+    /**
+     * Calculates an approximate "radius" for coarse collision detection.
+     * Uses half of the smaller dimension.
+     * @return double representing the approximate radius.
+     */
+    public double getRadius() {
+        // Use half of the smaller dimension as a simple radius approximation
+        return Math.min(this.dx, this.dy) / 2.0;
+    }
 }
+
+

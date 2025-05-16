@@ -31,7 +31,6 @@ public class FlockingSimulation {
     private static final double BOID_PERCEPTION_RADIUS = 50.0; // Adjust as needed
     private static final int SIMULATION_DELAY_MS = 20; // Approx 50 FPS
     // Using a fixed reasonable dt often works well. Adjust if simulation seems too fast/slow.
-    private static final double DELTA_TIME = 0.5; // Match dt to frame rate (adjust scale if needed)
 
     /**
      * Updates the maximum speed of all boids in the simulation.
@@ -170,60 +169,100 @@ public class FlockingSimulation {
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
                 // 1. Create Canvas
-                Canvas canvas = new Canvas(); // Canvas constructor sets preferred size 800x600
-                Utils utils = new Utils();
+                final Canvas canvas = new Canvas(); // Canvas constructor sets preferred size 800x600
+                final Utils utils = new Utils();
 
                 // 2. Create FlockingSimulation instance
-                FlockingSimulation simulation = new FlockingSimulation(canvas, utils);
+                final FlockingSimulation simulation = new FlockingSimulation(canvas, utils);
 
                 // 3. Create the GUI Controller, which creates the JFrame
                 //    Pass the simulation and canvas to the controller
+                //    This also makes the frame visible.
                 SimulationGUI controller = new SimulationGUI(simulation, canvas);
 
-                // Ensure frame is visible and layout is complete before getting dimensions
-                // (Frame visibility is handled by SimulationController constructor now)
-
-                // Add boids after the frame (and thus canvas) is likely initialized
-                int numBoids = 100; // Example number of boids
-                for (int i = 0; i < numBoids; i++) {
-                    // Get width/height *after* frame is visible (done by Controller)
-                    double startX, startY;
-                    boolean validPosition;
-                    int maxAttempts = 50; // Prevent infinite loops
-                    int attempts = 0;
-                    
-                    do {
-                        startX = utils.randomDouble(0, canvas.getWidth());
-                        startY = utils.randomDouble(0, canvas.getHeight());
-                        validPosition = true;
-                        
-                        // Check if position is inside any obstacle
-                        for (Rectangle obstacle : simulation.obstacles) {
-                            if (obstacle.contains(new CartesianCoordinate(startX, startY))) {
-                                validPosition = false;
-                                break;
-                            }
+                // 4. Defer boid creation and simulation start to a subsequent event queue task
+                //    This gives the GUI time to lay out and for the canvas to get its actual size.
+                SwingUtilities.invokeLater(new Runnable() {
+                    public void run() {
+                        System.out.println("Canvas dimensions for boid spawning: " + canvas.getWidth() + "x" + canvas.getHeight());
+                        if (canvas.getWidth() == 0 || canvas.getHeight() == 0) {
+                            System.err.println("Warning: Canvas dimensions are zero at the time of boid spawning. " +
+                                               "Spawning might be incorrect. Ensure GUI is fully initialized.");
+                            // For a more robust solution, one might implement a loop with a short delay
+                            // here to wait for canvas dimensions, or use a ComponentListener on the canvas.
                         }
-                        attempts++;
-                    } while (!validPosition && attempts < maxAttempts);
-                    
-                    // If we couldn't find a valid position after max attempts, use a safe default
-                    if (!validPosition) {
-                        startX = 400;
-                        startY = 300;
+
+                        int numBoids = 100; 
+                        final double BOID_SPAWN_MARGIN = 15.0; // Safety margin around obstacles for spawning
+
+                        for (int i = 0; i < numBoids; i++) {
+                            System.out.println("\nSpawning Boid #" + (i + 1));
+                            double startX, startY;
+                            boolean validPosition;
+                            int maxAttempts = 50; // Prevent infinite loops
+                            int attempts = 0;
+                            
+                            do {
+                                // Ensure canvas.getWidth/Height are positive before using randomDouble
+                                // to avoid issues if they are still 0 despite invokeLater.
+                                double currentCanvasWidth = Math.max(1, canvas.getWidth()); // Use at least 1 to avoid issues with random range
+                                double currentCanvasHeight = Math.max(1, canvas.getHeight());
+
+                                startX = utils.randomDouble(0, currentCanvasWidth);
+                                startY = utils.randomDouble(0, currentCanvasHeight);
+                                System.out.println("  Attempt " + (attempts + 1) + ": Trying random (x,y) = (" + startX + ", " + startY + ")");
+                                validPosition = true;
+                                
+                                int obsIdx = 0;
+                                for (Rectangle obstacle : simulation.obstacles) {
+                                    obsIdx++;
+                                    double obsX = obstacle.getPosition().getX();
+                                    double obsY = obstacle.getPosition().getY();
+                                    double obsDX = obstacle.getDx(); 
+                                    double obsDY = obstacle.getDy();
+
+                                    double noSpawnMinX = obsX - BOID_SPAWN_MARGIN;
+                                    double noSpawnMaxX = obsX + obsDX + BOID_SPAWN_MARGIN;
+                                    double noSpawnMinY = obsY - BOID_SPAWN_MARGIN;
+                                    double noSpawnMaxY = obsY + obsDY + BOID_SPAWN_MARGIN;
+
+                                    if (startX >= noSpawnMinX &&
+                                        startX <= noSpawnMaxX &&
+                                        startY >= noSpawnMinY &&
+                                        startY <= noSpawnMaxY) {
+                                        System.out.println("    INVALID: Random point is inside expanded Obstacle " + obsIdx);
+                                        validPosition = false;
+                                        break;
+                                    }
+                                }
+                                if (validPosition) {
+                                    System.out.println("  Attempt " + (attempts + 1) + " successful for (" + startX + ", " + startY + ")");
+                                }
+                                attempts++;
+                            } while (!validPosition && attempts < maxAttempts);
+                            
+                            if (!validPosition) {
+                                System.out.println("  Max attempts reached. Using fallback (10,10) for Boid #" + (i+1));
+                                startX = 10;
+                                startY = 10;
+                            } else {
+                                System.out.println("  Final spawn for Boid #" + (i+1) + " at (" + startX + ", " + startY + ")");
+                            }
+
+                            Boid newBoid = new Boid(canvas,
+                                new CartesianCoordinate(startX, startY),
+                                new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1)).normalize().multiply(utils.randomDouble(0, BOID_MAX_SPEED)),
+                                BOID_MAX_SPEED,
+                                BOID_MAX_FORCE,
+                                BOID_PERCEPTION_RADIUS
+                            );
+                            simulation.addBoid(newBoid);
+                        }
+
+                        // Start the simulation loop in a new thread
+                        new Thread(() -> simulation.runSimulationLoop()).start();
                     }
-
-                    simulation.addBoid(new Boid(canvas,
-                        new CartesianCoordinate(startX, startY),
-                        new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1)).normalize().multiply(utils.randomDouble(0, BOID_MAX_SPEED)),
-                        BOID_MAX_SPEED,
-                        BOID_MAX_FORCE,
-                        BOID_PERCEPTION_RADIUS
-                    ));
-                }
-
-                // 4. Start the simulation loop in a new thread
-                new Thread(() -> simulation.runSimulationLoop()).start();
+                });
             }
         });
     }

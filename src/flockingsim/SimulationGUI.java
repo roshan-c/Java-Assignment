@@ -68,7 +68,7 @@ public class SimulationGUI {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
                 if (!source.getValueIsAdjusting()) {
-                    simulation.updateSeparationWeight(source.getValue() / 10.0); // 0.0 to 4.0
+                    simulation.updateSeparationWeight(source.getValue() / 100.0); // Changed 10.0 to 100.0
                 }
             }
         });
@@ -79,7 +79,7 @@ public class SimulationGUI {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
                 if (!source.getValueIsAdjusting()) {
-                    simulation.updateAlignmentWeight(source.getValue() / 10.0); // 0.0 to 4.0
+                    simulation.updateAlignmentWeight(source.getValue() / 100.0); // Changed 10.0 to 100.0
                 }
             }
         });
@@ -90,7 +90,7 @@ public class SimulationGUI {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
                 if (!source.getValueIsAdjusting()) {
-                    simulation.updateCohesionWeight(source.getValue() / 10.0); // 0.0 to 4.0
+                    simulation.updateCohesionWeight(source.getValue() / 100.0); // Changed 10.0 to 100.0
                 }
             }
         });
@@ -143,6 +143,8 @@ public class SimulationGUI {
         controlPanel.add(cohesionSlider);
         controlPanel.add(javax.swing.Box.createVerticalStrut(20));
 
+        obstacleLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        obstacleSlider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         controlPanel.add(obstacleLabel);
         controlPanel.add(javax.swing.Box.createVerticalStrut(5));
         controlPanel.add(obstacleSlider);
