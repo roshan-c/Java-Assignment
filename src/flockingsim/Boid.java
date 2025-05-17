@@ -158,17 +158,52 @@ public class Boid {
     public void move(int distance, List<Rectangle> obstacles) {
         if (distance <= 0) return;
         
-        // Calculate new position
         CartesianCoordinate direction = this.velocity.normalize();
         CartesianCoordinate displacement = direction.multiply(distance);
-        CartesianCoordinate newPosition = this.position.add(displacement);
+        CartesianCoordinate intendedPosition = this.position.add(displacement);
 
-        // Check if new position is safe
-        if (isPositionSafe(newPosition, obstacles)) {
-            this.position = newPosition;
-            if (this.canvas != null) {
-                wrapPosition(this.canvas.getWidth(), this.canvas.getHeight());
+        CartesianCoordinate finalProposedPosition = intendedPosition; // Start with the direct intended position
+
+        if (this.canvas != null) {
+            double x = intendedPosition.getX();
+            double y = intendedPosition.getY();
+            int canvasWidth = this.canvas.getWidth();
+            int canvasHeight = this.canvas.getHeight();
+            boolean changedByWrapping = false;
+
+            // Only attempt to wrap if canvas dimensions are valid (greater than 0)
+            if (canvasWidth > 0 && canvasHeight > 0) {
+                double newX = x;
+                double newY = y;
+
+                // Perform wrapping logic similar to Boid.wrapPosition
+                while (newX < 0) {
+                    newX += canvasWidth;
+                    changedByWrapping = true;
+                }
+                while (newX >= canvasWidth) {
+                    newX -= canvasWidth;
+                    changedByWrapping = true;
+                }
+                while (newY < 0) {
+                    newY += canvasHeight;
+                    changedByWrapping = true;
+                }
+                while (newY >= canvasHeight) {
+                    newY -= canvasHeight;
+                    changedByWrapping = true;
+                }
+
+                if (changedByWrapping) {
+                    finalProposedPosition = new CartesianCoordinate(newX, newY);
+                }
             }
+            // If not changedByWrapping or canvas dimensions invalid, finalProposedPosition remains intendedPosition
+        }
+
+        // Check if the (potentially wrapped) new position is safe
+        if (isPositionSafe(finalProposedPosition, obstacles)) {
+            this.position = finalProposedPosition; // Update to the safe, and correctly wrapped, position
         } else {
             // If position is not safe (i.e., inside an obstacle), do not move.
             // Make the boid "bounce" back slightly by reversing its velocity at reduced speed.

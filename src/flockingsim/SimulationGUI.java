@@ -68,29 +68,29 @@ public class SimulationGUI {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
                 if (!source.getValueIsAdjusting()) {
-                    simulation.updateSeparationWeight(source.getValue() / 100.0); // Changed 10.0 to 100.0
+                    simulation.updateSeparationWeight(source.getValue() / 10.0);
                 }
             }
         });
 
-        JSlider alignmentSlider = new JSlider(JSlider.HORIZONTAL, 0, 40, 11);
+        JSlider alignmentSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 22);
         alignmentSlider.setMaximumSize(new java.awt.Dimension(130, 20));
         alignmentSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
                 if (!source.getValueIsAdjusting()) {
-                    simulation.updateAlignmentWeight(source.getValue() / 100.0); // Changed 10.0 to 100.0
+                    simulation.updateAlignmentWeight(source.getValue() / 20.0);
                 }
             }
         });
 
-        JSlider cohesionSlider = new JSlider(JSlider.HORIZONTAL, 0, 40, 11);
+        JSlider cohesionSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 22);
         cohesionSlider.setMaximumSize(new java.awt.Dimension(130, 20));
         cohesionSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
                 if (!source.getValueIsAdjusting()) {
-                    simulation.updateCohesionWeight(source.getValue() / 100.0); // Changed 10.0 to 100.0
+                    simulation.updateCohesionWeight(source.getValue() / 20.0);
                 }
             }
         });
