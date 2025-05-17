@@ -1,6 +1,8 @@
 package flockingsim;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import drawing.Canvas;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
@@ -20,8 +22,8 @@ import flockingsim.SimulationGUI;
  */
 public class FlockingSimulation {
     private Canvas canvas;
-    private ArrayList<Boid> boids; // array that holds all the boids in the simulation
-    private ArrayList<Rectangle> obstacles; // List to hold obstacles
+    private List<Boid> boids;
+    private ArrayList<Rectangle> obstacles;
     private boolean running;
     private Utils utils;
 
@@ -30,6 +32,8 @@ public class FlockingSimulation {
     private static final double BOID_MAX_FORCE = 0.1; // Adjust as needed (limits steering strength)
     private static final double BOID_PERCEPTION_RADIUS = 50.0; // Adjust as needed
     private static final int SIMULATION_DELAY_MS = 20; // Approx 50 FPS
+    private static final double BOID_SPAWN_MARGIN = 15.0; // Moved from main and made class member
+    private int initialBoidCount = 100; // Added for initial setup
     // Using a fixed reasonable dt often works well. Adjust if simulation seems too fast/slow.
 
     /**
@@ -85,10 +89,10 @@ public class FlockingSimulation {
 
     public FlockingSimulation(Canvas canvas, Utils utils) {
         this.canvas = canvas;
-        this.boids = new ArrayList<>();
+        this.boids = new CopyOnWriteArrayList<>();
         this.utils = utils;
-        this.obstacles = new ArrayList<>(); // Initialize obstacles list
-        initializeObstacles(); // Method to create the obstacles
+        this.obstacles = new ArrayList<>();
+        initializeObstacles();
     }
 
     /**
@@ -114,18 +118,59 @@ public class FlockingSimulation {
         this.obstacles.add(new Rectangle(new CartesianCoordinate(550, 100), 150, 120, this.canvas));
     }
 
-    /**
-     * Adds a boid to the simulation.
-     * @param boid The boid to add. */
-    public void addBoid(Boid boid) {
-        this.boids.add(boid);
-    }
+    public void resetAndSpawnBoids(int newCount) {
+        List<Boid> tempBoidList = new ArrayList<>(newCount);
 
-    /**
-     * Removes a boid from the simulation.
-     * @param boid The boid to remove. */
-    public void removeBoid(Boid boid) {
-        this.boids.remove(boid);
+        for (int i = 0; i < newCount; i++) {
+            double startX, startY;
+            boolean validPosition;
+            int maxAttempts = 50;
+            int attempts = 0;
+            
+            do {
+                double currentCanvasWidth = Math.max(1, this.canvas.getWidth());
+                double currentCanvasHeight = Math.max(1, this.canvas.getHeight());
+
+                startX = this.utils.randomDouble(0, currentCanvasWidth);
+                startY = this.utils.randomDouble(0, currentCanvasHeight);
+                validPosition = true;
+                
+                for (Rectangle obstacle : this.obstacles) {
+                    double obsX = obstacle.getPosition().getX();
+                    double obsY = obstacle.getPosition().getY();
+                    double obsDX = obstacle.getDx(); 
+                    double obsDY = obstacle.getDy();
+
+                    double noSpawnMinX = obsX - BOID_SPAWN_MARGIN;
+                    double noSpawnMaxX = obsX + obsDX + BOID_SPAWN_MARGIN;
+                    double noSpawnMinY = obsY - BOID_SPAWN_MARGIN;
+                    double noSpawnMaxY = obsY + obsDY + BOID_SPAWN_MARGIN;
+
+                    if (startX >= noSpawnMinX && startX <= noSpawnMaxX &&
+                        startY >= noSpawnMinY && startY <= noSpawnMaxY) {
+                        validPosition = false;
+                        break;
+                    }
+                }
+                attempts++;
+            } while (!validPosition && attempts < maxAttempts);
+            
+            if (!validPosition) {
+                startX = 10; // Fallback x
+                startY = 10; // Fallback y
+            }
+
+            Boid newBoid = new Boid(this.canvas,
+                new CartesianCoordinate(startX, startY),
+                new CartesianCoordinate(this.utils.randomDouble(-1, 1), this.utils.randomDouble(-1, 1)).normalize().multiply(this.utils.randomDouble(0, BOID_MAX_SPEED)),
+                BOID_MAX_SPEED,
+                BOID_MAX_FORCE,
+                BOID_PERCEPTION_RADIUS
+            );
+            tempBoidList.add(newBoid);
+        }
+        this.boids = new CopyOnWriteArrayList<>(tempBoidList); // Atomically update the boids list
+        System.out.println("Set number of boids to: " + newCount);
     }
 
     /**
@@ -192,72 +237,8 @@ public class FlockingSimulation {
                             // here to wait for canvas dimensions, or use a ComponentListener on the canvas.
                         }
 
-                        int numBoids = 100; 
-                        final double BOID_SPAWN_MARGIN = 15.0; // Safety margin around obstacles for spawning
-
-                        for (int i = 0; i < numBoids; i++) {
-                            System.out.println("\nSpawning Boid #" + (i + 1));
-                            double startX, startY;
-                            boolean validPosition;
-                            int maxAttempts = 50; // Prevent infinite loops
-                            int attempts = 0;
-                            
-                            do {
-                                // Ensure canvas.getWidth/Height are positive before using randomDouble
-                                // to avoid issues if they are still 0 despite invokeLater.
-                                double currentCanvasWidth = Math.max(1, canvas.getWidth()); // Use at least 1 to avoid issues with random range
-                                double currentCanvasHeight = Math.max(1, canvas.getHeight());
-
-                                startX = utils.randomDouble(0, currentCanvasWidth);
-                                startY = utils.randomDouble(0, currentCanvasHeight);
-                                System.out.println("  Attempt " + (attempts + 1) + ": Trying random (x,y) = (" + startX + ", " + startY + ")");
-                                validPosition = true;
-                                
-                                int obsIdx = 0;
-                                for (Rectangle obstacle : simulation.obstacles) {
-                                    obsIdx++;
-                                    double obsX = obstacle.getPosition().getX();
-                                    double obsY = obstacle.getPosition().getY();
-                                    double obsDX = obstacle.getDx(); 
-                                    double obsDY = obstacle.getDy();
-
-                                    double noSpawnMinX = obsX - BOID_SPAWN_MARGIN;
-                                    double noSpawnMaxX = obsX + obsDX + BOID_SPAWN_MARGIN;
-                                    double noSpawnMinY = obsY - BOID_SPAWN_MARGIN;
-                                    double noSpawnMaxY = obsY + obsDY + BOID_SPAWN_MARGIN;
-
-                                    if (startX >= noSpawnMinX &&
-                                        startX <= noSpawnMaxX &&
-                                        startY >= noSpawnMinY &&
-                                        startY <= noSpawnMaxY) {
-                                        System.out.println("    INVALID: Random point is inside expanded Obstacle " + obsIdx);
-                                        validPosition = false;
-                                        break;
-                                    }
-                                }
-                                if (validPosition) {
-                                    System.out.println("  Attempt " + (attempts + 1) + " successful for (" + startX + ", " + startY + ")");
-                                }
-                                attempts++;
-                            } while (!validPosition && attempts < maxAttempts);
-                            
-                            if (!validPosition) {
-                                System.out.println("  Max attempts reached. Using fallback (10,10) for Boid #" + (i+1));
-                                startX = 10;
-                                startY = 10;
-                            } else {
-                                System.out.println("  Final spawn for Boid #" + (i+1) + " at (" + startX + ", " + startY + ")");
-                            }
-
-                            Boid newBoid = new Boid(canvas,
-                                new CartesianCoordinate(startX, startY),
-                                new CartesianCoordinate(utils.randomDouble(-1, 1), utils.randomDouble(-1, 1)).normalize().multiply(utils.randomDouble(0, BOID_MAX_SPEED)),
-                                BOID_MAX_SPEED,
-                                BOID_MAX_FORCE,
-                                BOID_PERCEPTION_RADIUS
-                            );
-                            simulation.addBoid(newBoid);
-                        }
+                        // Initial boid population
+                        simulation.resetAndSpawnBoids(simulation.initialBoidCount); 
 
                         // Start the simulation loop in a new thread
                         new Thread(() -> simulation.runSimulationLoop()).start();

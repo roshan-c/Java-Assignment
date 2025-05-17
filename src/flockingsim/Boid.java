@@ -22,7 +22,7 @@ public class Boid {
     private double maxSpeed;
     private double maxForce;
     private double perceptionRadius;
-    private double separationWeight = 2.0;    
+    private double separationWeight = 1.5;    
     private double alignmentWeight = 1.1;    
     private double cohesionWeight = 1.1;      
     private double desiredSeparation = 30.0;   

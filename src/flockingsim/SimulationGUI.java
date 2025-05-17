@@ -7,6 +7,8 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout; // Import BorderLayout
 import java.awt.Color;
@@ -62,7 +64,7 @@ public class SimulationGUI {
             }
         });
        
-        JSlider separationSlider = new JSlider(JSlider.HORIZONTAL, 0, 40, 20);
+        JSlider separationSlider = new JSlider(JSlider.HORIZONTAL, 0, 40, 15);
         separationSlider.setMaximumSize(new java.awt.Dimension(130, 20));
         separationSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
@@ -148,6 +150,32 @@ public class SimulationGUI {
         controlPanel.add(obstacleLabel);
         controlPanel.add(javax.swing.Box.createVerticalStrut(5));
         controlPanel.add(obstacleSlider);
+        controlPanel.add(javax.swing.Box.createVerticalStrut(20));
+
+        // Spinner for Number of Boids
+        JLabel boidCountLabel = new JLabel("Number of Boids:");
+        boidCountLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+
+        SpinnerNumberModel boidCountModel = new SpinnerNumberModel(100, 0, 1000, 1); // Initial 100, Min 0, Max 1000, Step 1
+        JSpinner boidCountSpinner = new JSpinner(boidCountModel);
+        boidCountSpinner.setMaximumSize(new java.awt.Dimension(130, 25)); // Adjusted size for spinner
+        boidCountSpinner.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+
+        boidCountSpinner.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent e) {
+                // JSpinner sends ChangeEvents continuously while value is changing if arrows are held.
+                // Unlike JSlider, there isn't a simple 'getValueIsAdjusting' for final value.
+                // However, for a spinner, updating on each registered change is usually acceptable.
+                JSpinner source = (JSpinner) e.getSource();
+                int newBoidCount = (Integer) source.getValue();
+                simulation.resetAndSpawnBoids(newBoidCount);
+            }
+        });
+
+        controlPanel.add(boidCountLabel);
+        controlPanel.add(javax.swing.Box.createVerticalStrut(5));
+        controlPanel.add(boidCountSpinner);
+
         // Add logic here later to create and add JPanels with sliders, buttons etc.
         // e.g., JPanel controlPanel = new JPanel();
         // frame.add(controlPanel, BorderLayout.SOUTH);
