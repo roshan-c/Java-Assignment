@@ -66,9 +66,7 @@ public class SimulationGUI {
         simulationSpeedSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
-                if (!source.getValueIsAdjusting()) {
-                    simulation.updateSimulationSpeed(source.getValue());
-                }
+                simulation.updateSimulationSpeed(source.getValue());
             }
         });
         
@@ -84,53 +82,59 @@ public class SimulationGUI {
         boidSpeedSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
-                if (!source.getValueIsAdjusting()) {
-                    simulation.updateBoidSpeed(source.getValue());
-                }
+                simulation.updateBoidSpeed(source.getValue());
             }
         });
        
         JSlider separationSlider = new JSlider(JSlider.HORIZONTAL, 0, 40, 15);
-        separationSlider.setMaximumSize(new java.awt.Dimension(130, 20));
+        separationSlider.setMaximumSize(new java.awt.Dimension(130, 35));
+        separationSlider.setMajorTickSpacing(10);
+        separationSlider.setMinorTickSpacing(5);
+        separationSlider.setPaintTicks(true);
+        separationSlider.setPaintLabels(true);
         separationSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
-                if (!source.getValueIsAdjusting()) {
-                    simulation.updateSeparationWeight(source.getValue() / 10.0);
-                }
+                simulation.updateSeparationWeight(source.getValue() / 10.0);
             }
         });
 
         JSlider alignmentSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 22);
-        alignmentSlider.setMaximumSize(new java.awt.Dimension(130, 20));
+        alignmentSlider.setMaximumSize(new java.awt.Dimension(130, 35));
+        alignmentSlider.setMajorTickSpacing(10);
+        alignmentSlider.setMinorTickSpacing(5);
+        alignmentSlider.setPaintTicks(true);
+        alignmentSlider.setPaintLabels(true);
         alignmentSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
-                if (!source.getValueIsAdjusting()) {
-                    simulation.updateAlignmentWeight(source.getValue() / 20.0);
-                }
+                simulation.updateAlignmentWeight(source.getValue() / 20.0);
             }
         });
 
         JSlider cohesionSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 22);
-        cohesionSlider.setMaximumSize(new java.awt.Dimension(130, 20));
+        cohesionSlider.setMaximumSize(new java.awt.Dimension(130, 35));
+        cohesionSlider.setMajorTickSpacing(10);
+        cohesionSlider.setMinorTickSpacing(5);
+        cohesionSlider.setPaintTicks(true);
+        cohesionSlider.setPaintLabels(true);
         cohesionSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
-                if (!source.getValueIsAdjusting()) {
-                    simulation.updateCohesionWeight(source.getValue() / 20.0);
-                }
+                simulation.updateCohesionWeight(source.getValue() / 20.0);
             }
         });
 
         JSlider obstacleSlider = new JSlider(JSlider.HORIZONTAL, 0, 40, 40);
-        obstacleSlider.setMaximumSize(new java.awt.Dimension(130, 20));
+        obstacleSlider.setMaximumSize(new java.awt.Dimension(130, 35));
+        obstacleSlider.setMajorTickSpacing(10);
+        obstacleSlider.setMinorTickSpacing(5);
+        obstacleSlider.setPaintTicks(true);
+        obstacleSlider.setPaintLabels(true);
         obstacleSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
-                if (!source.getValueIsAdjusting()) {
-                    simulation.updateObstacleWeight(source.getValue() / 10.0); // 0.0 to 4.0
-                }
+                simulation.updateObstacleWeight(source.getValue() / 10.0);
             }
         });
 
@@ -214,29 +218,35 @@ public class SimulationGUI {
         JButton resetSettingsButton = new JButton("Reset Settings");
         resetSettingsButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent e) {
+                System.out.println("\n=== Before Reset ===");
+                System.out.println("SimSpeed Slider: " + simulationSpeedSlider.getValue());
+                System.out.println("BoidSpeed Slider: " + boidSpeedSlider.getValue());
+                System.out.println("Separation Slider: " + separationSlider.getValue());
+                System.out.println("Alignment Slider: " + alignmentSlider.getValue());
+                System.out.println("Cohesion Slider: " + cohesionSlider.getValue());
+                System.out.println("Obstacle Slider: " + obstacleSlider.getValue());
+                System.out.println("BoidCount Spinner: " + boidCountSpinner.getValue());
+
                 simulation.resetSettings(); // Resets simulation state and re-spawns boids
 
                 // Update GUI components to reflect default simulation settings
-                // Target FPS slider (default: 30 FPS)
-                simulationSpeedSlider.setValue(30); 
+                simulationSpeedSlider.setModel(new javax.swing.DefaultBoundedRangeModel(30, 0, 10, 100));
+                boidSpeedSlider.setModel(new javax.swing.DefaultBoundedRangeModel(10, 0, 0, 50));
+                separationSlider.setModel(new javax.swing.DefaultBoundedRangeModel(15, 0, 0, 40));
+                alignmentSlider.setModel(new javax.swing.DefaultBoundedRangeModel(22, 0, 0, 50));
+                cohesionSlider.setModel(new javax.swing.DefaultBoundedRangeModel(22, 0, 0, 50));
+                obstacleSlider.setModel(new javax.swing.DefaultBoundedRangeModel(40, 0, 0, 40));
+                boidCountSpinner.setValue(100);
 
-                // Boid Speed Slider (default from FlockingSimulation.BOID_MAX_SPEED: 10)
-                boidSpeedSlider.setValue(10);
-
-                // Separation Slider (default Boid.separationWeight: 1.5; Slider value 15 for effective 1.5)
-                separationSlider.setValue(15);
-
-                // Alignment Slider (default Boid.alignmentWeight: 1.1; Slider value 22 for effective 1.1)
-                alignmentSlider.setValue(22);
-
-                // Cohesion Slider (default Boid.cohesionWeight: 1.1; Slider value 22 for effective 1.1)
-                cohesionSlider.setValue(22);
-
-                // Obstacle Slider (default Boid.obstacleAvoidanceWeight: 4.0; Slider value 40 for effective 4.0)
-                obstacleSlider.setValue(40);
-
-                // Boid Count Spinner (default from FlockingSimulation.DEFAULT_INITIAL_BOID_COUNT: 100)
-                boidCountSpinner.setValue(100); 
+                System.out.println("\n=== After Reset ===");
+                System.out.println("SimSpeed Slider: " + simulationSpeedSlider.getValue());
+                System.out.println("BoidSpeed Slider: " + boidSpeedSlider.getValue());
+                System.out.println("Separation Slider: " + separationSlider.getValue());
+                System.out.println("Alignment Slider: " + alignmentSlider.getValue());
+                System.out.println("Cohesion Slider: " + cohesionSlider.getValue());
+                System.out.println("Obstacle Slider: " + obstacleSlider.getValue());
+                System.out.println("BoidCount Spinner: " + boidCountSpinner.getValue());
+                System.out.println("==================\n");
             }
         });
 
