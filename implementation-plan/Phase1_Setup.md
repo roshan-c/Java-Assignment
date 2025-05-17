@@ -16,25 +16,25 @@
 - [X] **Boid Class (`flockingsim.Boid`)**:
     - [X] Fields: `position`, `velocity`, `acceleration` (all `CartesianCoordinate`), `canvas`.
     - [X] Constructor: Initializes `position`, `velocity`, `canvas`, and sets initial `acceleration` to (0,0).
-    - [X] `update(double dt)` method:
-        - [X] Updates `velocity` using `acceleration` and `dt`.
-        - [X] Updates `position` using `velocity` and `dt`.
+    - [X] `update(double dt)` method: (Note: `dt` is not explicitly passed; updates are based on forces accumulated per frame)
+        - [X] Updates `velocity` using `acceleration`.
+        - [X] Updates `position` using `velocity`.
         - [X] Resets `acceleration` to (0,0).
-    - [X] `draw()` method: Renders the boid on the canvas (currently a cross, was a line based on velocity).
+    - [X] `draw()` method: Renders the boid on the canvas (triangle based on velocity).
 - [X] **Simulation Class (`flockingsim.FlockingSimulation`)**:
-    - [X] Fields: `canvas`, `ArrayList<Boid> boids`, `running` flag.
+    - [X] Fields: `canvas`, `List<Boid> boids`, `running` flag.
     - [X] Constructor: Initializes `canvas` and `boids` list.
-    - [X] `addBoid(Boid boid)` method.
+    - [X] `addBoid(Boid boid)` method. (Now handled by `resetAndSpawnBoids`)
     - [X] `main` method:
         - [X] Sets up `JFrame` (title, size, close operation).
         - [X] Creates `Canvas` instance and adds to `JFrame`.
         - [X] Makes `JFrame` visible.
         - [X] Creates `FlockingSimulation` instance.
-        - [X] Adds initial boids (both fixed and random).
+        - [X] Adds initial boids (via `resetAndSpawnBoids`).
         - [X] Starts `runSimulationLoop` in a new `Thread`.
     - [X] `runSimulationLoop()` method:
         - [X] Contains the main `while(running)` loop.
-        - [X] Iterates through boids, calling `boid.update(dt)`.
+        - [X] Iterates through boids, calling `boid.update(...)`.
         - [X] Uses `SwingUtilities.invokeLater` to:
             - [X] Call `canvas.clear()`.
             - [X] Iterate through boids, calling `boid.draw()`.
@@ -43,5 +43,5 @@
 - [X] **Functionality Achieved**:
     - [X] Window appears correctly.
     - [X] Multiple boids are instantiated and appear on the canvas.
-    - [X] Boids move based on their initial velocity and the (explicit or implicit) `dt`.
-    - [X] Understanding of the role of `dt` in physics updates. 
+    - [X] Boids move based on their initial velocity and forces.
+    - [X] Understanding of the role of frame-based updates. 

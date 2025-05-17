@@ -53,9 +53,35 @@ public class SimulationGUI {
         controlPanel.setBackground(Color.GRAY);
         controlPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JSlider speedSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 10);
-        speedSlider.setMaximumSize(new java.awt.Dimension(130, 20));
-        speedSlider.addChangeListener(new javax.swing.event.ChangeListener() {
+        // Slider for Simulation Speed (now representing Target FPS)
+        // Range: 10 FPS to 100 FPS. Initial: 30 FPS.
+        // Delay will be calculated as 1000 / FPS.
+        // Min Delay (at 100 FPS) = 10ms. Max Delay (at 10 FPS) = 100ms.
+        JSlider simulationSpeedSlider = new JSlider(JSlider.HORIZONTAL, 10, 100, 30); 
+        simulationSpeedSlider.setMaximumSize(new java.awt.Dimension(130, 35)); // Increased height for labels
+        simulationSpeedSlider.setMajorTickSpacing(20); 
+        simulationSpeedSlider.setMinorTickSpacing(5);
+        simulationSpeedSlider.setPaintTicks(true);
+        simulationSpeedSlider.setPaintLabels(true); 
+        simulationSpeedSlider.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent e) {
+                JSlider source = (JSlider) e.getSource();
+                if (!source.getValueIsAdjusting()) {
+                    simulation.updateSimulationSpeed(source.getValue());
+                }
+            }
+        });
+        
+        
+
+        JSlider boidSpeedSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 10);
+        boidSpeedSlider.setMaximumSize(new java.awt.Dimension(130, 35));
+        boidSpeedSlider.setMajorTickSpacing(10);
+        boidSpeedSlider.setMinorTickSpacing(5);
+        boidSpeedSlider.setPaintTicks(true);
+        boidSpeedSlider.setPaintLabels(true);
+        boidSpeedSlider.setPaintTrack(true);
+        boidSpeedSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
                 if (!source.getValueIsAdjusting()) {
@@ -108,21 +134,30 @@ public class SimulationGUI {
             }
         });
 
-        JLabel speedLabel = new JLabel("Speed:");    
-        JLabel separationLabel = new JLabel("Separation:");
-        JLabel alignmentLabel = new JLabel("Alignment:");
-        JLabel cohesionLabel = new JLabel("Cohesion:");
-        JLabel obstacleLabel = new JLabel("Obstacle:");
+        JLabel simulationSpeedLabel = new JLabel("Simulation FPS:");    
+        JLabel boidSpeedLabel = new JLabel("Boid Speed (m/s):");    
+        JLabel separationLabel = new JLabel("Separation Weight:");
+        JLabel alignmentLabel = new JLabel("Alignment Weight:");
+        JLabel cohesionLabel = new JLabel("Cohesion Weight:");
+        JLabel obstacleLabel = new JLabel("Avoid Obstacles:");
 
         frame.add(controlPanel, BorderLayout.WEST);
+
+        simulationSpeedLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        simulationSpeedSlider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        controlPanel.add(simulationSpeedLabel);
+        controlPanel.add(javax.swing.Box.createVerticalStrut(5));
+        controlPanel.add(simulationSpeedSlider);
+        controlPanel.add(javax.swing.Box.createVerticalStrut(20));
         
         // Add components with alignment
-        speedLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        speedSlider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        controlPanel.add(speedLabel);
+        boidSpeedLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        boidSpeedSlider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        controlPanel.add(boidSpeedLabel);
         controlPanel.add(javax.swing.Box.createVerticalStrut(5));
-        controlPanel.add(speedSlider);
+        controlPanel.add(boidSpeedSlider);
         controlPanel.add(javax.swing.Box.createVerticalStrut(20));
+
         
         separationLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         separationSlider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
@@ -176,11 +211,39 @@ public class SimulationGUI {
         controlPanel.add(javax.swing.Box.createVerticalStrut(5));
         controlPanel.add(boidCountSpinner);
 
-        // Add logic here later to create and add JPanels with sliders, buttons etc.
-        // e.g., JPanel controlPanel = new JPanel();
-        // frame.add(controlPanel, BorderLayout.SOUTH);
-    }
+        JButton resetSettingsButton = new JButton("Reset Settings");
+        resetSettingsButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                simulation.resetSettings(); // Resets simulation state and re-spawns boids
 
-    // Methods to add controls and handle events will go here later.
+                // Update GUI components to reflect default simulation settings
+                // Target FPS slider (default: 30 FPS)
+                simulationSpeedSlider.setValue(30); 
+
+                // Boid Speed Slider (default from FlockingSimulation.BOID_MAX_SPEED: 10)
+                boidSpeedSlider.setValue(10);
+
+                // Separation Slider (default Boid.separationWeight: 1.5; Slider value 15 for effective 1.5)
+                separationSlider.setValue(15);
+
+                // Alignment Slider (default Boid.alignmentWeight: 1.1; Slider value 22 for effective 1.1)
+                alignmentSlider.setValue(22);
+
+                // Cohesion Slider (default Boid.cohesionWeight: 1.1; Slider value 22 for effective 1.1)
+                cohesionSlider.setValue(22);
+
+                // Obstacle Slider (default Boid.obstacleAvoidanceWeight: 4.0; Slider value 40 for effective 4.0)
+                obstacleSlider.setValue(40);
+
+                // Boid Count Spinner (default from FlockingSimulation.DEFAULT_INITIAL_BOID_COUNT: 100)
+                boidCountSpinner.setValue(100); 
+            }
+        });
+
+        resetSettingsButton.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        controlPanel.add(resetSettingsButton);
+
+
+    }
 
 } 

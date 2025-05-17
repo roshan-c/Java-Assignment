@@ -27,14 +27,20 @@ public class FlockingSimulation {
     private boolean running;
     private Utils utils;
 
-    // Define some simulation parameters
+    // Default simulation parameters
+    private static final int DEFAULT_SIMULATION_TARGET_FPS = 30;
+    private static final int DEFAULT_SIMULATION_DELAY_MS = 1000 / DEFAULT_SIMULATION_TARGET_FPS; // Approx 33ms
+    private static final int DEFAULT_INITIAL_BOID_COUNT = 100;
+    // Boid specific defaults are in Boid class or passed during construction in resetAndSpawnBoids
+
+    private int simulationDelayMs = DEFAULT_SIMULATION_DELAY_MS;
+    private int initialBoidCount = DEFAULT_INITIAL_BOID_COUNT; // Used by resetSettings
+
+    // Boid behavior parameters (can be overridden by GUI)
     private static final double BOID_MAX_SPEED = 10;
-    private static final double BOID_MAX_FORCE = 0.1; // Adjust as needed (limits steering strength)
-    private static final double BOID_PERCEPTION_RADIUS = 50.0; // Adjust as needed
-    private static final int SIMULATION_DELAY_MS = 20; // Approx 50 FPS
-    private static final double BOID_SPAWN_MARGIN = 15.0; // Moved from main and made class member
-    private int initialBoidCount = 100; // Added for initial setup
-    // Using a fixed reasonable dt often works well. Adjust if simulation seems too fast/slow.
+    private static final double BOID_MAX_FORCE = 0.1;
+    private static final double BOID_PERCEPTION_RADIUS = 50.0;
+    private static final double BOID_SPAWN_MARGIN = 15.0;
 
     /**
      * Updates the maximum speed of all boids in the simulation.
@@ -113,14 +119,15 @@ public class FlockingSimulation {
         // but these can be adjusted to match the brief exactly if needed.
 
         // Rectangle(CartesianCoordinate topLeft, int dx, int dy, Canvas canvas)
-        this.obstacles.add(new Rectangle(new CartesianCoordinate(100, 30), 120, 80, this.canvas)); 
+        this.obstacles.add(new Rectangle(new CartesianCoordinate(100, 300), 120, 80, this.canvas)); 
         this.obstacles.add(new Rectangle(new CartesianCoordinate(350, 200), 80, 150, this.canvas));
         this.obstacles.add(new Rectangle(new CartesianCoordinate(550, 100), 150, 120, this.canvas));
     }
 
     public void resetAndSpawnBoids(int newCount) {
         List<Boid> tempBoidList = new ArrayList<>(newCount);
-
+        // The Boid constructor uses its own internal defaults for weights, 
+        // and BOID_MAX_SPEED for max speed. So new boids are inherently default.
         for (int i = 0; i < newCount; i++) {
             double startX, startY;
             boolean validPosition;
@@ -130,22 +137,18 @@ public class FlockingSimulation {
             do {
                 double currentCanvasWidth = Math.max(1, this.canvas.getWidth());
                 double currentCanvasHeight = Math.max(1, this.canvas.getHeight());
-
                 startX = this.utils.randomDouble(0, currentCanvasWidth);
                 startY = this.utils.randomDouble(0, currentCanvasHeight);
                 validPosition = true;
-                
                 for (Rectangle obstacle : this.obstacles) {
                     double obsX = obstacle.getPosition().getX();
                     double obsY = obstacle.getPosition().getY();
                     double obsDX = obstacle.getDx(); 
                     double obsDY = obstacle.getDy();
-
                     double noSpawnMinX = obsX - BOID_SPAWN_MARGIN;
                     double noSpawnMaxX = obsX + obsDX + BOID_SPAWN_MARGIN;
                     double noSpawnMinY = obsY - BOID_SPAWN_MARGIN;
                     double noSpawnMaxY = obsY + obsDY + BOID_SPAWN_MARGIN;
-
                     if (startX >= noSpawnMinX && startX <= noSpawnMaxX &&
                         startY >= noSpawnMinY && startY <= noSpawnMaxY) {
                         validPosition = false;
@@ -156,20 +159,20 @@ public class FlockingSimulation {
             } while (!validPosition && attempts < maxAttempts);
             
             if (!validPosition) {
-                startX = 10; // Fallback x
-                startY = 10; // Fallback y
+                startX = 10; startY = 10;
             }
-
             Boid newBoid = new Boid(this.canvas,
                 new CartesianCoordinate(startX, startY),
                 new CartesianCoordinate(this.utils.randomDouble(-1, 1), this.utils.randomDouble(-1, 1)).normalize().multiply(this.utils.randomDouble(0, BOID_MAX_SPEED)),
-                BOID_MAX_SPEED,
+                BOID_MAX_SPEED, // Use the class constant for default speed
                 BOID_MAX_FORCE,
                 BOID_PERCEPTION_RADIUS
             );
+            // Individual boid weights (separation, alignment, cohesion, obstacle) are set to their defaults within the Boid constructor.
+            // The GUI sliders will override these via the setXWeight methods on all boids if changed from default.
             tempBoidList.add(newBoid);
         }
-        this.boids = new CopyOnWriteArrayList<>(tempBoidList); // Atomically update the boids list
+        this.boids = new CopyOnWriteArrayList<>(tempBoidList);
         System.out.println("Set number of boids to: " + newCount);
     }
 
@@ -206,7 +209,7 @@ public class FlockingSimulation {
             });
 
             // Pause to control simulation speed
-            this.utils.pause(SIMULATION_DELAY_MS);
+            this.utils.pause(this.simulationDelayMs);
         }
     }
 
@@ -246,6 +249,37 @@ public class FlockingSimulation {
                 });
             }
         });
+    }
+
+    /**
+     * Updates the simulation delay based on a target FPS value.
+     * @param targetFPS The desired frames per second.
+     */
+    public void updateSimulationSpeed(int targetFPS) {
+        if (targetFPS <= 0) {
+            this.simulationDelayMs = 1000; // Default to 1 FPS if target is 0 or less
+        } else {
+            this.simulationDelayMs = 1000 / targetFPS;
+        }
+        // Ensure delay is at least 1ms to avoid excessive CPU usage or issues with pause(0)
+        this.simulationDelayMs = Math.max(1, this.simulationDelayMs); 
+        System.out.println("Target FPS set to: " + targetFPS + ", Simulation Delay set to: " + this.simulationDelayMs + "ms");
+    }
+
+    public void resetSettings() {
+        // Reset the simulation's core parameters to their defaults
+        this.simulationDelayMs = DEFAULT_SIMULATION_DELAY_MS;
+        // this.initialBoidCount = DEFAULT_INITIAL_BOID_COUNT; // This field is just a holder for the default value
+
+        // For boid parameters (speed, weights), re-spawning boids will make them use their constructor defaults.
+        // Then, ensure the GUI sliders reflect these defaults.
+        // The individual setXWeight and setMaxSpeed methods are for GUI overrides.
+        // If we want all *existing* boids to also revert, we would loop, but resetAndSpawnBoids replaces them.
+        
+        resetAndSpawnBoids(DEFAULT_INITIAL_BOID_COUNT); // Respawn with default count
+
+        // The GUI sliders need to be reset externally by SimulationGUI after this call.
+        System.out.println("Simulation settings and boids have been reset to defaults.");
     }
 
 }

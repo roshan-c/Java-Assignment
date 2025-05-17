@@ -1,11 +1,11 @@
 # Phase 4: Tuning and Advanced Features (Optional)
 
-- [ ] **Tuning Parameters**:
-    - [ ] Experiment with `perceptionRadius`, `desiredSeparation`, `maxSpeed`, `maxForce`.
-    - [ ] Adjust weights for separation, alignment, and cohesion forces to achieve different flocking behaviors (e.g., tight clusters, loose groups, smooth alignment).
-- [ ] **Obstacle Avoidance**:
-    - [ ] Define obstacle shapes (e.g., circles, rectangles).
-    - [ ] Implement logic for boids to detect and steer away from obstacles.
+- [X] **Tuning Parameters**:
+    - [X] Experiment with `perceptionRadius`, `desiredSeparation`, `maxSpeed`, `maxForce` (indirectly via sliders affecting behavior).
+    - [X] Adjust weights for separation, alignment, and cohesion forces to achieve different flocking behaviors (sliders implemented).
+- [X] **Obstacle Avoidance**:
+    - [X] Define obstacle shapes (Rectangles used as per brief, coordinates corrected).
+    - [X] Implement logic for boids to detect and steer away from obstacles (proactive steering force and robust bounce/wrap logic).
 - [ ] **Mouse Interaction**:
     - [ ] Add mouse listeners to the `Canvas`.
     - [ ] Implement behaviors like:
@@ -14,7 +14,10 @@
         - [ ] Adding new boids on mouse click.
 - [ ] **Goal Seeking / Path Following**:
     - [ ] Define target points or paths for boids to follow.
-- [ ] **User Interface (GUI Controls)**:
-    - [ ] Add Swing components (sliders, checkboxes, buttons) to the `JFrame` to allow real-time adjustment of simulation parameters (e.g., number of boids, `maxSpeed`, rule weights).
+- [X] **User Interface (GUI Controls)**:
+    - [X] Add Swing components (sliders, JSpinner) to the `JFrame` to allow real-time adjustment of simulation parameters (number of boids, `maxSpeed`, rule weights).
 - [ ] **Performance Optimization** (if dealing with many boids):
-    - [ ] Consider spatial partitioning techniques (e.g., grid or quadtree) for more efficient neighborhood searches if performance becomes an issue with a large number of boids. 
+    - [ ] Consider spatial partitioning techniques (e.g., grid or quadtree) for more efficient neighborhood searches if performance becomes an issue with a large number of boids (e.g., 500+). (Currently using `CopyOnWriteArrayList` for thread-safe boid list modifications, neighborhood search is O(N) per boid).
+- [ ] **Additional Brief-Mentioned Features for High Marks**:
+    - [ ] Control over simulation speed (e.g., via a GUI slider affecting `SIMULATION_DELAY_MS`).
+    - [ ] Other types of individuals for the flock to interact with (e.g., predators, diseased individuals - would involve more significant OO design with inheritance/polymorphism). 
