@@ -73,8 +73,16 @@ public class SimulationGUI {
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 // Check if it's a left click (Button1)
                 if (SwingUtilities.isLeftMouseButton(e)) {
-                    System.out.println("Canvas clicked at: " + e.getX() + ", " + e.getY() + " - Spawning Predator");
-                    simulation.addPredator(new CartesianCoordinate(e.getX(), e.getY()));
+                    System.out.println("Canvas clicked at: " + e.getX() + ", " + e.getY() + " - Attempting to spawn Predator");
+                    CartesianCoordinate clickPos = new CartesianCoordinate(e.getX(), e.getY());
+                    // Use a clearance radius for the predator, e.g., PREDATOR_SPAWN_CLEARANCE from FlockingSimulation (or define one here)
+                    // For now, using a hardcoded value as an example, ideally get from simulation or constants.
+                    double predatorClearance = 20.0; // Example clearance, sync with FlockingSimulation.PREDATOR_SPAWN_CLEARANCE if possible
+                    if (simulation.isPositionSafeForSpawning(clickPos, predatorClearance)) {
+                        simulation.addPredator(clickPos);
+                    } else {
+                        System.out.println("Spawn position for predator is unsafe (too close to obstacle).");
+                    }
                 }
             }
         });
@@ -224,6 +232,23 @@ public class SimulationGUI {
         controlPanel.add(mouseWeightSlider);
         controlPanel.add(javax.swing.Box.createVerticalStrut(20));
 
+        // Slider for Predator Flee Weight
+        JLabel predatorFleeLabel = new JLabel("Predator Flee Weight:");
+        predatorFleeLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        JSlider predatorFleeSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 25); // Range 0.0 to 5.0, default 2.5
+        predatorFleeSlider.setMaximumSize(new java.awt.Dimension(130, 25));
+        predatorFleeSlider.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent e) {
+                JSlider source = (JSlider) e.getSource();
+                simulation.updatePredatorFleeWeight(source.getValue() / 10.0); // Divide by 10 for 0.0 to 5.0 range
+            }
+        });
+        predatorFleeSlider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        controlPanel.add(predatorFleeLabel);
+        controlPanel.add(javax.swing.Box.createVerticalStrut(5));
+        controlPanel.add(predatorFleeSlider);
+        controlPanel.add(javax.swing.Box.createVerticalStrut(20));
+
         // Spinner for Number of Boids
         JLabel boidCountLabel = new JLabel("Number of Boids:");
         boidCountLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
@@ -259,6 +284,8 @@ public class SimulationGUI {
                 System.out.println("Alignment Slider: " + alignmentSlider.getValue());
                 System.out.println("Cohesion Slider: " + cohesionSlider.getValue());
                 System.out.println("Obstacle Slider: " + obstacleSlider.getValue());
+                System.out.println("MouseAvoid Slider: " + mouseWeightSlider.getValue());
+                System.out.println("PredatorFlee Slider: " + predatorFleeSlider.getValue());
                 System.out.println("BoidCount Spinner: " + boidCountSpinner.getValue());
 
                 simulation.resetSettings(); // Resets simulation state and re-spawns boids
@@ -270,6 +297,8 @@ public class SimulationGUI {
                 alignmentSlider.setModel(new javax.swing.DefaultBoundedRangeModel(22, 0, 0, 50));
                 cohesionSlider.setModel(new javax.swing.DefaultBoundedRangeModel(22, 0, 0, 50));
                 obstacleSlider.setModel(new javax.swing.DefaultBoundedRangeModel(40, 0, 0, 40));
+                mouseWeightSlider.setModel(new javax.swing.DefaultBoundedRangeModel(5,0,0,10)); // Reset mouse slider
+                predatorFleeSlider.setModel(new javax.swing.DefaultBoundedRangeModel(25, 0, 0, 50)); // Reset predator flee slider
                 boidCountSpinner.setValue(100);
 
                 System.out.println("\n=== After Reset ===");
@@ -279,6 +308,8 @@ public class SimulationGUI {
                 System.out.println("Alignment Slider: " + alignmentSlider.getValue());
                 System.out.println("Cohesion Slider: " + cohesionSlider.getValue());
                 System.out.println("Obstacle Slider: " + obstacleSlider.getValue());
+                System.out.println("MouseAvoid Slider: " + mouseWeightSlider.getValue());
+                System.out.println("PredatorFlee Slider: " + predatorFleeSlider.getValue());
                 System.out.println("BoidCount Spinner: " + boidCountSpinner.getValue());
                 System.out.println("==================\n");
             }

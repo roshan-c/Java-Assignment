@@ -40,6 +40,12 @@ public interface SimulatedEntity {
      */
     void setMaxSpeed(double maxSpeed);
     
+    /**
+     * Gets the visual radius of the entity for collision detection against obstacles.
+     * @return The visual radius of the entity.
+     */
+    double getVisualRadius();
+    
     // Potentially other common methods if they emerge, e.g.:
     // boolean isAlive();
     // double getPerceptionRadius(); // If common and needed by others polymorphically

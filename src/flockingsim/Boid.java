@@ -19,8 +19,8 @@ import flockingsim.AbstractSimulatedEntity;
 public class Boid extends AbstractSimulatedEntity {
     private double mousePerceptionRadius = 100.0;
     private double separationWeight = 1.5;
-    private double alignmentWeight = 1.1;
-    private double cohesionWeight = 1.1;
+    private double alignmentWeight = 1.0;
+    private double cohesionWeight = 1.0;
     private double mouseAvoidanceWeight = 0.0;
     private double desiredSeparation = 30.0;
     private double obstacleAvoidanceWeight = 4.0;
@@ -28,6 +28,7 @@ public class Boid extends AbstractSimulatedEntity {
     private double lookAheadDistance = 150.0;
     private double minSpeed = 2.0;
     private double maxTurnRate = 30.0;
+    private double predatorFleeWeight = 2.5;
     private static final double BOID_LENGTH = 7; // Length of the boid
     private static final double BOID_WIDTH = 9; // Width of the boid
     private static final double BOID_BACK_OFFSET = 5; // Offset from the back of the boid to the tip of the tail
@@ -51,24 +52,25 @@ public class Boid extends AbstractSimulatedEntity {
     public void update(List<SimulatedEntity> allEntities, List<Rectangle> obstacles, CartesianCoordinate currentMousePosition) {
         this.acceleration = new CartesianCoordinate(0, 0);
 
-        List<Boid> localBoids = new ArrayList<>();
-        for (SimulatedEntity entity : allEntities) {
-            if (entity instanceof Boid && entity != this) {
-                localBoids.add((Boid) entity);
-            }
-        }
+        // Get neighbors once
+        ArrayList<Boid> neighbors = getNeighbors(allEntities);
 
-        CartesianCoordinate separation = calculateSeparationForce(localBoids);
-        CartesianCoordinate alignment = calculateAlignmentForce(localBoids);
-        CartesianCoordinate cohesion = calculateCohesionForce(localBoids);
+        // Calculate flocking forces using the pre-filtered neighbors list
+        CartesianCoordinate separation = calculateSeparationForce(neighbors);
+        CartesianCoordinate alignment = calculateAlignmentForce(neighbors);
+        CartesianCoordinate cohesion = calculateCohesionForce(neighbors);
+        
+        // Other forces
         CartesianCoordinate avoidance = calculateObstacleAvoidanceForce(obstacles);
         CartesianCoordinate mouseAvoidance = calculateMouseAvoidanceForce(currentMousePosition);
+        CartesianCoordinate predatorFlee = calculatePredatorFleeForce(allEntities); // Predator flee still needs allEntities
 
         this.acceleration = this.acceleration.add(separation.multiply(separationWeight));
         this.acceleration = this.acceleration.add(alignment.multiply(alignmentWeight));
         this.acceleration = this.acceleration.add(cohesion.multiply(cohesionWeight));
         this.acceleration = this.acceleration.add(avoidance.multiply(obstacleAvoidanceWeight));
         this.acceleration = this.acceleration.add(mouseAvoidance.multiply(mouseAvoidanceWeight));
+        this.acceleration = this.acceleration.add(predatorFlee.multiply(predatorFleeWeight));
 
         this.velocity = this.velocity.add(this.acceleration);
         double currentSpeed = this.velocity.magnitude();
@@ -125,25 +127,6 @@ public class Boid extends AbstractSimulatedEntity {
 
     public void undraw() { 
         if (this.canvas != null) this.canvas.removeMostRecentLine();
-    }
-
-    public void applyFlockingRules(List<SimulatedEntity> allEntities, List<Rectangle> obstacles) {
-        this.acceleration = new CartesianCoordinate(0, 0);
-        ArrayList<Boid> neighbors = getNeighbors(allEntities);
-        CartesianCoordinate separationForce = calculateSeparationForce(neighbors);
-        CartesianCoordinate alignmentForce = calculateAlignmentForce(neighbors);
-        CartesianCoordinate cohesionForce = calculateCohesionForce(neighbors);
-        CartesianCoordinate avoidanceForce = calculateObstacleAvoidanceForce(obstacles);
-
-        separationForce = separationForce.multiply(separationWeight);
-        alignmentForce = alignmentForce.multiply(alignmentWeight);
-        cohesionForce = cohesionForce.multiply(cohesionWeight);
-        avoidanceForce = avoidanceForce.multiply(obstacleAvoidanceWeight);
-
-        this.acceleration = this.acceleration.add(separationForce);
-        this.acceleration = this.acceleration.add(alignmentForce);
-        this.acceleration = this.acceleration.add(cohesionForce);
-        this.acceleration = this.acceleration.add(avoidanceForce);
     }
 
     private ArrayList<Boid> getNeighbors(List<SimulatedEntity> allEntities) {
@@ -274,6 +257,54 @@ public class Boid extends AbstractSimulatedEntity {
         return steer.limit(this.maxForce * 2.0); 
     }
 
+    private CartesianCoordinate calculatePredatorFleeForce(List<SimulatedEntity> allEntities) {
+        CartesianCoordinate totalFleeForce = new CartesianCoordinate(0, 0);
+        int predatorsNearby = 0;
+
+        for (SimulatedEntity entity : allEntities) {
+            if (entity instanceof Predator) {
+                Predator predator = (Predator) entity;
+                CartesianCoordinate predatorPosition = predator.getPosition();
+                double distance = this.position.distance(predatorPosition).magnitude();
+                
+                if (distance > 0 && distance < this.perceptionRadius) {
+                    CartesianCoordinate diff = this.position.subtract(predatorPosition);
+                    diff = diff.normalize();
+                    diff = diff.divide(distance);
+                    
+                    totalFleeForce = totalFleeForce.add(diff);
+                    predatorsNearby++;
+                }
+            }
+        }
+
+        if (predatorsNearby > 0) {
+            totalFleeForce = totalFleeForce.divide(predatorsNearby);
+            if (totalFleeForce.magnitude() > 0) {
+                totalFleeForce = totalFleeForce.normalize().multiply(this.maxSpeed);
+                totalFleeForce = totalFleeForce.subtract(this.getVelocity());
+                totalFleeForce = totalFleeForce.limit(this.maxForce * 3.5);
+            }
+        }
+        return totalFleeForce;
+    }
+
+    public void avoidPredator(List<SimulatedEntity> allEntities) {
+        for (SimulatedEntity entity : allEntities) {
+            if (entity instanceof Predator) {
+                Predator predator = (Predator) entity;
+                CartesianCoordinate predatorPosition = predator.getPosition();
+                double distance = this.position.distance(predatorPosition).magnitude();
+                if (distance > 0 && distance < this.perceptionRadius) {
+                    CartesianCoordinate diff = this.position.subtract(predatorPosition);
+                    diff = diff.normalize();
+                    double strength = Math.pow(1.0 - (distance / this.perceptionRadius), 2);
+                    
+                }
+            }
+        }
+    }
+
     public double getObstacleSafetyRadius() {
         return this.obstacleSafetyRadius;
     }
@@ -293,11 +324,19 @@ public class Boid extends AbstractSimulatedEntity {
     public void setMouseAvoidanceWeight(double weight) {
         this.mouseAvoidanceWeight = weight;
     }
+    public void setPredatorFleeWeight(double weight) {
+        this.predatorFleeWeight = weight;
+    }
 
     public void reduceSpeed() {
-        double currentSpeedVal = this.velocity.magnitude();
+        double currentSpeedVal = this.getVelocity().magnitude();
         if (currentSpeedVal > this.minSpeed) {
-            this.velocity = this.velocity.multiply(0.7);
+            this.velocity = this.getVelocity().multiply(0.7);
         }
+    }
+
+    @Override
+    public double getVisualRadius() {
+        return Math.max(BOID_LENGTH, BOID_WIDTH) / 2.0; 
     }
 }

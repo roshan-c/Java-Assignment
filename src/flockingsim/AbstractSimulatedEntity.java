@@ -30,6 +30,7 @@ public abstract class  AbstractSimulatedEntity implements SimulatedEntity {
 
     public abstract void draw();
     public abstract void update(List<SimulatedEntity> allEntities, List<Rectangle> obstacles, CartesianCoordinate currentMousePosition);
+    public abstract double getVisualRadius();
     
 
     public CartesianCoordinate getPosition() {
@@ -146,9 +147,23 @@ public abstract class  AbstractSimulatedEntity implements SimulatedEntity {
     }
 
     private boolean isPositionSafe(CartesianCoordinate newPosition, List<Rectangle> obstacles) {
+        double entityRadius = getVisualRadius();
         for (Rectangle obstacle : obstacles) {
-            if (obstacle.contains(newPosition)) {
-                return false; 
+            double obsX = obstacle.getPosition().getX();
+            double obsY = obstacle.getPosition().getY();
+            double obsDX = obstacle.getDx();
+            double obsDY = obstacle.getDy();
+
+            if (newPosition.getX() >= obsX - entityRadius && 
+                newPosition.getX() <= obsX + obsDX + entityRadius &&
+                newPosition.getY() >= obsY - entityRadius && 
+                newPosition.getY() <= obsY + obsDY + entityRadius) {
+                
+                if (obstacle.contains(newPosition)) {
+                    return false;
+                }
+
+                return false;
             }
         }
         return true; 

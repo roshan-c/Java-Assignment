@@ -34,9 +34,10 @@ public class FlockingSimulation {
 
     // Boid behavior parameters (can be overridden by GUI)
     private static final double BOID_MAX_SPEED = 10;
-    private static final double BOID_MAX_FORCE = 0.1;
+    private static final double BOID_MAX_FORCE = 0.5;
     private static final double BOID_PERCEPTION_RADIUS = 50.0;
     private static final double BOID_SPAWN_MARGIN = 15.0;
+    private static final double PREDATOR_SPAWN_CLEARANCE = 20.0; // Clearance for predator spawning
 
     /**
      * Updates the maximum speed of all boids in the simulation.
@@ -326,6 +327,25 @@ public class FlockingSimulation {
         this.gui = gui;
     }
 
+    public boolean isPositionSafeForSpawning(CartesianCoordinate spawnPosition, double entityClearanceRadius) {
+        for (Rectangle obstacle : this.obstacles) {
+            // A simple check: if the spawn position is within the obstacle's bounding box expanded by the entityClearanceRadius
+            double obsX = obstacle.getPosition().getX();
+            double obsY = obstacle.getPosition().getY();
+            double obsDX = obstacle.getDx();
+            double obsDY = obstacle.getDy();
+
+            // Check if the spawn point is within the expanded no-spawn zone of the obstacle
+            if (spawnPosition.getX() >= obsX - entityClearanceRadius && 
+                spawnPosition.getX() <= obsX + obsDX + entityClearanceRadius &&
+                spawnPosition.getY() >= obsY - entityClearanceRadius && 
+                spawnPosition.getY() <= obsY + obsDY + entityClearanceRadius) {
+                return false; // Too close to an obstacle
+            }
+        }
+        return true; // Position is safe
+    }
+
     // Method to add a predator to the simulation
     public void addPredator(CartesianCoordinate spawnPosition) {
         Predator newPredator = new Predator(this.canvas, spawnPosition, new CartesianCoordinate(0, 0), BOID_MAX_SPEED, BOID_MAX_FORCE, BOID_PERCEPTION_RADIUS);
@@ -338,5 +358,13 @@ public class FlockingSimulation {
         // Predator newPredator = new Predator(this.canvas, spawnPosition, /* other params */);
         // this.entities.add(newPredator);
         // System.out.println("Predator added at: " + spawnPosition);
+    }
+
+    public void updatePredatorFleeWeight(double weight) {
+        for (SimulatedEntity entity : this.entities) {
+            if (entity instanceof Boid) {
+                ((Boid) entity).setPredatorFleeWeight(weight);
+            }
+        }
     }
 }

@@ -119,4 +119,10 @@ public class Predator extends AbstractSimulatedEntity {
         CartesianCoordinate steer = desired.subtract(this.velocity); // velocity is inherited
         return steer.limit(this.maxForce); // maxForce is inherited
     }
+
+    @Override
+    public double getVisualRadius() {
+        // Approximate radius based on predator width or length
+        return Math.max(PREDATOR_LENGTH, PREDATOR_WIDTH) / 2.0;
+    }
 }
