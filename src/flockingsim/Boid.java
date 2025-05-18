@@ -13,7 +13,7 @@ import geometry.CartesianCoordinate;
  * It can move, turn, and draw itself.
  * It can also put its pen up or down to control whether its movement is drawn on the canvas. */
 
-public class Boid {
+public class Boid implements SimulatedEntity {
     private CartesianCoordinate position;
     private CartesianCoordinate velocity;
     private CartesianCoordinate acceleration;
