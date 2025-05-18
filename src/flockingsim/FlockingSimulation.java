@@ -17,7 +17,7 @@ import tools.Utils;
  */
 public class FlockingSimulation {
     private final Canvas canvas;
-    private List<Boid> boids;
+    private List<SimulatedEntity> entities;
     private final ArrayList<Rectangle> obstacles;
     private boolean running;
     private final Utils utils;
@@ -42,10 +42,11 @@ public class FlockingSimulation {
      * Updates the maximum speed of all boids in the simulation.
      * @param speed The desired speed value (0-30)
      */
-    public void updateBoidSpeed(int speed) {
-        // Update speed for all boids
-        for (Boid boid : this.boids) {
-            boid.setMaxSpeed(speed);
+    public void updateMaxSpeedForAllEntities(int speed) {
+        for (SimulatedEntity entity : this.entities) { 
+            if (entity instanceof AbstractSimulatedEntity) {
+                ((AbstractSimulatedEntity) entity).setMaxSpeed((double) speed);
+            }
         }
     }
 
@@ -54,8 +55,10 @@ public class FlockingSimulation {
      * @param weight The new separation weight (0.0 to 0.5)
      */
     public void updateSeparationWeight(double weight) {
-        for (Boid boid : this.boids) {
-            boid.setSeparationWeight(weight);
+        for (SimulatedEntity entity : this.entities) {
+            if (entity instanceof Boid) {
+                ((Boid) entity).setSeparationWeight(weight);
+            }
         }
     }
 
@@ -64,8 +67,10 @@ public class FlockingSimulation {
      * @param weight The new alignment weight (0.0 to 0.5)
      */
     public void updateAlignmentWeight(double weight) {
-        for (Boid boid : this.boids) {
-            boid.setAlignmentWeight(weight);
+        for (SimulatedEntity entity : this.entities) {
+            if (entity instanceof Boid) {
+                ((Boid) entity).setAlignmentWeight(weight);
+            }
         }
     }
 
@@ -74,30 +79,36 @@ public class FlockingSimulation {
      * @param weight The new cohesion weight (0.0 to 0.5)
      */
     public void updateCohesionWeight(double weight) {
-        for (Boid boid : this.boids) {
-            boid.setCohesionWeight(weight);
+        for (SimulatedEntity entity : this.entities) {
+            if (entity instanceof Boid) {
+                ((Boid) entity).setCohesionWeight(weight);
+            }
         }
     }
 
     /**
-     * Updates the obstacle avoidance weight for all boids.
+     * Updates the obstacle avoidance weight for all entities
      * @param weight The new obstacle avoidance weight (0.0 to 4.0)
      */
     public void updateObstacleAvoidanceWeight(double weight) {
-        for (Boid boid : this.boids) {
-            boid.setObstacleAvoidanceWeight(weight);
+        for (SimulatedEntity entity : this.entities) {
+            if (entity instanceof Boid) {
+                ((Boid) entity).setObstacleAvoidanceWeight(weight);
+            }
         }
     }
 
     public void updateMouseAvoidanceWeight(double weight) {
-        for (Boid boid : this.boids) {
-            boid.setMouseAvoidanceWeight(weight);
+        for (SimulatedEntity entity : this.entities) {
+            if (entity instanceof Boid) {
+                ((Boid) entity).setMouseAvoidanceWeight(weight);
+            }
         }
     }
 
     public FlockingSimulation(Canvas canvas, Utils utils) {
         this.canvas = canvas;
-        this.boids = new CopyOnWriteArrayList<>();
+        this.entities = new CopyOnWriteArrayList<>();
         this.utils = utils;
         this.obstacles = new ArrayList<>();
         initializeObstacles();
@@ -127,9 +138,7 @@ public class FlockingSimulation {
     }
 
     public void resetAndSpawnBoids(int newCount) {
-        List<Boid> tempBoidList = new ArrayList<>(newCount);
-        // The Boid constructor uses its own internal defaults for weights, 
-        // and BOID_MAX_SPEED for max speed. So new boids are inherently default.
+        List<SimulatedEntity> tempEntityList = new ArrayList<>(newCount);
         for (int i = 0; i < newCount; i++) {
             double startX, startY;
             boolean validPosition;
@@ -172,9 +181,10 @@ public class FlockingSimulation {
             );
             // Individual boid weights (separation, alignment, cohesion, obstacle) are set to their defaults within the Boid constructor.
             // The GUI sliders will override these via the setXWeight methods on all boids if changed from default.
-            tempBoidList.add(newBoid);
+            tempEntityList.add(newBoid);
         }
-        this.boids = new CopyOnWriteArrayList<>(tempBoidList);
+        this.entities.clear(); // Clear existing entities before adding new ones
+        this.entities.addAll(tempEntityList); // Add all new boids
         System.out.println("Set number of boids to: " + newCount);
     }
 
@@ -187,8 +197,10 @@ public class FlockingSimulation {
             obstacle.draw();
         }
         // Then draw boids
-        for (Boid boid : this.boids) {
-            boid.draw();
+        for (SimulatedEntity entity : this.entities) { 
+            if (entity instanceof AbstractSimulatedEntity) {
+                ((AbstractSimulatedEntity) entity).draw();
+            }
         }
     }
     
@@ -204,9 +216,11 @@ public class FlockingSimulation {
                 currentMousePos = new CartesianCoordinate(-1,-1); // Default off-screen
             }
 
-            // Update all boids
-            for (Boid boid : this.boids) {
-                boid.update(this.boids, this.obstacles, currentMousePos);
+            // Update all entities
+            for (SimulatedEntity entity : this.entities) {
+                if (entity instanceof AbstractSimulatedEntity) {
+                    ((AbstractSimulatedEntity) entity).update(this.entities, this.obstacles, currentMousePos);
+                }
             }
 
             // Draw everything
@@ -312,4 +326,17 @@ public class FlockingSimulation {
         this.gui = gui;
     }
 
+    // Method to add a predator to the simulation
+    public void addPredator(CartesianCoordinate spawnPosition) {
+        Predator newPredator = new Predator(this.canvas, spawnPosition, new CartesianCoordinate(0, 0), BOID_MAX_SPEED, BOID_MAX_FORCE, BOID_PERCEPTION_RADIUS);
+        this.entities.add(newPredator);
+        System.out.println("Predator added at: " + spawnPosition);
+
+
+        
+        // Example: Create a new Predator instance and add it to the entities list
+        // Predator newPredator = new Predator(this.canvas, spawnPosition, /* other params */);
+        // this.entities.add(newPredator);
+        // System.out.println("Predator added at: " + spawnPosition);
+    }
 }

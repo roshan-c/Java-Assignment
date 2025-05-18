@@ -53,7 +53,7 @@ public class SimulationGUI {
         // Initialize mouse position to a default (e.g., center or off-screen)
         this.mousePositionOnCanvas = new CartesianCoordinate(-1, -1); // Default off-screen
 
-        // Add MouseMotionListener to the canvas
+        // Add MouseMotionListener to the canvas for MOVING and DRAGGING
         this.canvas.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
             @Override
             public void mouseMoved(java.awt.event.MouseEvent e) {
@@ -63,6 +63,19 @@ public class SimulationGUI {
             @Override
             public void mouseDragged(java.awt.event.MouseEvent e) {
                 mousePositionOnCanvas = new CartesianCoordinate(e.getX(), e.getY());
+            }
+            // DO NOT add mouseClicked here, MouseMotionAdapter doesn't handle it well.
+        });
+
+        // Add a separate MouseListener (using MouseAdapter for conciseness) for CLICKING
+        this.canvas.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                // Check if it's a left click (Button1)
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    System.out.println("Canvas clicked at: " + e.getX() + ", " + e.getY() + " - Spawning Predator");
+                    simulation.addPredator(new CartesianCoordinate(e.getX(), e.getY()));
+                }
             }
         });
 
@@ -101,7 +114,7 @@ public class SimulationGUI {
         boidSpeedSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
-                simulation.updateBoidSpeed(source.getValue());
+                simulation.updateMaxSpeedForAllEntities(source.getValue());
             }
         });
        
