@@ -1,6 +1,7 @@
 package flockingsim;
 
 import drawing.Canvas;
+import geometry.CartesianCoordinate;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -13,6 +14,7 @@ import javax.swing.SwingUtilities;
 import java.awt.BorderLayout; // Import BorderLayout
 import java.awt.Color;
 import java.awt.GridLayout;
+import java.awt.MouseInfo;
 import java.awt.image.ColorConvertOp;
 
 /**
@@ -23,6 +25,7 @@ public class SimulationGUI {
     private FlockingSimulation simulation;
     private Canvas canvas;
     private JFrame frame;
+    private CartesianCoordinate mousePositionOnCanvas; // To store canvas-relative mouse position
 
     /**
      * Constructor for the SimulationController.
@@ -46,6 +49,22 @@ public class SimulationGUI {
         frame.setSize(1000, 600); // Match canvas default or desired size
         frame.setLocationRelativeTo(null); // Center the frame
         frame.setVisible(true); // Make frame visible 
+
+        // Initialize mouse position to a default (e.g., center or off-screen)
+        this.mousePositionOnCanvas = new CartesianCoordinate(-1, -1); // Default off-screen
+
+        // Add MouseMotionListener to the canvas
+        this.canvas.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(java.awt.event.MouseEvent e) {
+                mousePositionOnCanvas = new CartesianCoordinate(e.getX(), e.getY());
+            }
+
+            @Override
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+                mousePositionOnCanvas = new CartesianCoordinate(e.getX(), e.getY());
+            }
+        });
 
         JPanel controlPanel = new JPanel();
         controlPanel.setLayout(new javax.swing.BoxLayout(controlPanel, javax.swing.BoxLayout.Y_AXIS));
@@ -87,11 +106,7 @@ public class SimulationGUI {
         });
        
         JSlider separationSlider = new JSlider(JSlider.HORIZONTAL, 0, 40, 15);
-        separationSlider.setMaximumSize(new java.awt.Dimension(130, 35));
-        separationSlider.setMajorTickSpacing(10);
-        separationSlider.setMinorTickSpacing(5);
-        separationSlider.setPaintTicks(true);
-        separationSlider.setPaintLabels(true);
+        separationSlider.setMaximumSize(new java.awt.Dimension(130, 25));
         separationSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
@@ -100,11 +115,7 @@ public class SimulationGUI {
         });
 
         JSlider alignmentSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 22);
-        alignmentSlider.setMaximumSize(new java.awt.Dimension(130, 35));
-        alignmentSlider.setMajorTickSpacing(10);
-        alignmentSlider.setMinorTickSpacing(5);
-        alignmentSlider.setPaintTicks(true);
-        alignmentSlider.setPaintLabels(true);
+        alignmentSlider.setMaximumSize(new java.awt.Dimension(130, 25));
         alignmentSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
@@ -113,11 +124,7 @@ public class SimulationGUI {
         });
 
         JSlider cohesionSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 22);
-        cohesionSlider.setMaximumSize(new java.awt.Dimension(130, 35));
-        cohesionSlider.setMajorTickSpacing(10);
-        cohesionSlider.setMinorTickSpacing(5);
-        cohesionSlider.setPaintTicks(true);
-        cohesionSlider.setPaintLabels(true);
+        cohesionSlider.setMaximumSize(new java.awt.Dimension(130, 25));
         cohesionSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
@@ -126,15 +133,20 @@ public class SimulationGUI {
         });
 
         JSlider obstacleSlider = new JSlider(JSlider.HORIZONTAL, 0, 40, 40);
-        obstacleSlider.setMaximumSize(new java.awt.Dimension(130, 35));
-        obstacleSlider.setMajorTickSpacing(10);
-        obstacleSlider.setMinorTickSpacing(5);
-        obstacleSlider.setPaintTicks(true);
-        obstacleSlider.setPaintLabels(true);
+        obstacleSlider.setMaximumSize(new java.awt.Dimension(130, 25));
         obstacleSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
-                simulation.updateObstacleWeight(source.getValue() / 10.0);
+                simulation.updateObstacleAvoidanceWeight(source.getValue() / 10.0);
+            }
+        });
+
+        JSlider mouseWeightSlider = new JSlider(JSlider.HORIZONTAL, 0, 10, 5);
+        mouseWeightSlider.setMaximumSize(new java.awt.Dimension(130, 25));
+        mouseWeightSlider.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent e) {
+                JSlider source = (JSlider) e.getSource();
+                simulation.updateMouseAvoidanceWeight(source.getValue() / 10.0);
             }
         });
 
@@ -144,6 +156,7 @@ public class SimulationGUI {
         JLabel alignmentLabel = new JLabel("Alignment Weight:");
         JLabel cohesionLabel = new JLabel("Cohesion Weight:");
         JLabel obstacleLabel = new JLabel("Avoid Obstacles:");
+        JLabel mouseAvoidanceLabel = new JLabel("Avoid Mouse:");
 
         frame.add(controlPanel, BorderLayout.WEST);
 
@@ -191,6 +204,13 @@ public class SimulationGUI {
         controlPanel.add(obstacleSlider);
         controlPanel.add(javax.swing.Box.createVerticalStrut(20));
 
+        mouseAvoidanceLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        mouseWeightSlider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        controlPanel.add(mouseAvoidanceLabel);
+        controlPanel.add(javax.swing.Box.createVerticalStrut(5));
+        controlPanel.add(mouseWeightSlider);
+        controlPanel.add(javax.swing.Box.createVerticalStrut(20));
+
         // Spinner for Number of Boids
         JLabel boidCountLabel = new JLabel("Number of Boids:");
         boidCountLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
@@ -214,6 +234,7 @@ public class SimulationGUI {
         controlPanel.add(boidCountLabel);
         controlPanel.add(javax.swing.Box.createVerticalStrut(5));
         controlPanel.add(boidCountSpinner);
+
 
         JButton resetSettingsButton = new JButton("Reset Settings");
         resetSettingsButton.addActionListener(new java.awt.event.ActionListener() {
@@ -250,10 +271,18 @@ public class SimulationGUI {
             }
         });
 
+
         resetSettingsButton.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         controlPanel.add(resetSettingsButton);
 
+    
 
+
+
+    }
+
+    public CartesianCoordinate getMousePositionOnCanvas() {
+        return this.mousePositionOnCanvas;
     }
 
 } 

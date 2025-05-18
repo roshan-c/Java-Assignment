@@ -1,31 +1,27 @@
 package flockingsim;
 
+import java.awt.MouseInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import drawing.Canvas;
-import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
-import flockingsim.Boid;
 import geometry.CartesianCoordinate;
 import tools.Utils;
 
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-
-import flockingsim.SimulationGUI;
 /**
  * A FlockingSimulation is a simulation that contains a list of boids.
  * It can add, remove, and update boids.
  * It can also draw all the boids in the simulation. 
  */
 public class FlockingSimulation {
-    private Canvas canvas;
+    private final Canvas canvas;
     private List<Boid> boids;
-    private ArrayList<Rectangle> obstacles;
+    private final ArrayList<Rectangle> obstacles;
     private boolean running;
-    private Utils utils;
+    private final Utils utils;
+    private SimulationGUI gui;
 
     // Default simulation parameters
     private static final int DEFAULT_SIMULATION_TARGET_FPS = 30;
@@ -87,9 +83,15 @@ public class FlockingSimulation {
      * Updates the obstacle avoidance weight for all boids.
      * @param weight The new obstacle avoidance weight (0.0 to 4.0)
      */
-    public void updateObstacleWeight(double weight) {
+    public void updateObstacleAvoidanceWeight(double weight) {
         for (Boid boid : this.boids) {
             boid.setObstacleAvoidanceWeight(weight);
+        }
+    }
+
+    public void updateMouseAvoidanceWeight(double weight) {
+        for (Boid boid : this.boids) {
+            boid.setMouseAvoidanceWeight(weight);
         }
     }
 
@@ -194,9 +196,17 @@ public class FlockingSimulation {
     public void runSimulationLoop() {
         this.running = true;
         while (this.running) {
+            CartesianCoordinate currentMousePos = null;
+            if (this.gui != null) {
+                currentMousePos = this.gui.getMousePositionOnCanvas();
+            } else {
+                // Fallback or default if GUI is not set - though it should be
+                currentMousePos = new CartesianCoordinate(-1,-1); // Default off-screen
+            }
+
             // Update all boids
             for (Boid boid : this.boids) {
-                boid.update(this.boids, this.obstacles);
+                boid.update(this.boids, this.obstacles, currentMousePos);
             }
 
             // Draw everything
@@ -227,6 +237,7 @@ public class FlockingSimulation {
                 //    Pass the simulation and canvas to the controller
                 //    This also makes the frame visible.
                 SimulationGUI controller = new SimulationGUI(simulation, canvas);
+                simulation.setGui(controller); // Set the GUI reference in the simulation
 
                 // 4. Defer boid creation and simulation start to a subsequent event queue task
                 //    This gives the GUI time to lay out and for the canvas to get its actual size.
@@ -280,6 +291,25 @@ public class FlockingSimulation {
 
         // The GUI sliders need to be reset externally by SimulationGUI after this call.
         System.out.println("Simulation settings and boids have been reset to defaults.");
+    }
+
+    public CartesianCoordinate getMousePosition() {
+        // This method is now less relevant for boid avoidance, 
+        // as canvas-relative coordinates are preferred and obtained via SimulationGUI.
+        // It can be kept for other purposes or removed if no longer needed.
+        if (MouseInfo.getPointerInfo() == null || MouseInfo.getPointerInfo().getLocation() == null) {
+            return new CartesianCoordinate(-1000, -1000); 
+        }
+        double xMousePosition = MouseInfo.getPointerInfo().getLocation().getX();
+        double yMousePosition = MouseInfo.getPointerInfo().getLocation().getY();
+        CartesianCoordinate mouseCoordinates = new CartesianCoordinate(xMousePosition, yMousePosition);
+                return mouseCoordinates;
+
+    }
+
+    // Method to set the GUI reference
+    public void setGui(SimulationGUI gui) {
+        this.gui = gui;
     }
 
 }

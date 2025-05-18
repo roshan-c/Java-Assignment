@@ -22,9 +22,11 @@ public class Boid {
     private double maxSpeed;
     private double maxForce;
     private double perceptionRadius;
+    private double mousePerceptionRadius = 100.0;
     private double separationWeight = 1.5;    
     private double alignmentWeight = 1.1;    
-    private double cohesionWeight = 1.1;      
+    private double cohesionWeight = 1.1; 
+    private double mouseAvoidanceWeight = 0.0;     
     private double desiredSeparation = 30.0;   
     private double obstacleAvoidanceWeight = 4.0;  
     private double obstacleSafetyRadius = 120.0;
@@ -61,7 +63,7 @@ public class Boid {
      * @param allBoids List of all boids in the simulation
      * @param obstacles List of obstacles in the simulation
      */
-    public void update(List<Boid> allBoids, List<Rectangle> obstacles) {
+    public void update(List<Boid> allBoids, List<Rectangle> obstacles, CartesianCoordinate currentMousePosition) {
         // Reset acceleration
         this.acceleration = new CartesianCoordinate(0, 0);
 
@@ -71,11 +73,15 @@ public class Boid {
         CartesianCoordinate cohesion = calculateCohesionForce(allBoids);
         CartesianCoordinate avoidance = calculateObstacleAvoidanceForce(obstacles);
 
+        CartesianCoordinate mouseAvoidance = calculateMouseAvoidanceForce(currentMousePosition);
+
+
         // Apply weights
         this.acceleration = this.acceleration.add(separation.multiply(separationWeight));
         this.acceleration = this.acceleration.add(alignment.multiply(alignmentWeight));
         this.acceleration = this.acceleration.add(cohesion.multiply(cohesionWeight));
         this.acceleration = this.acceleration.add(avoidance.multiply(obstacleAvoidanceWeight));
+        this.acceleration = this.acceleration.add(mouseAvoidance.multiply(mouseAvoidanceWeight));
 
         // Update velocity
         this.velocity = this.velocity.add(this.acceleration);
@@ -499,6 +505,22 @@ public class Boid {
         return steer;
     }
 
+    private CartesianCoordinate calculateMouseAvoidanceForce(CartesianCoordinate currentMousePos) {
+        if (currentMousePos == null) { // If mouse position is not available
+            return new CartesianCoordinate(0, 0);
+        }
+        CartesianCoordinate steer = new CartesianCoordinate(0, 0);
+        double distance = this.position.distance(currentMousePos).magnitude();
+        if (distance > 0 && distance < this.mousePerceptionRadius) {
+            CartesianCoordinate diff = this.position.subtract(currentMousePos);
+            diff = diff.normalize();
+            double strength = Math.pow(1.0 - (distance / this.mousePerceptionRadius), 2);
+            diff = diff.multiply(this.maxSpeed * strength * 3.0);
+            steer = steer.add(diff);
+        }
+        return steer.limit(this.maxForce * 2.0); // Limit the force like other flocking forces
+    }
+
     // Add getter methods
     public CartesianCoordinate getPosition() {
         return this.position;
@@ -550,6 +572,14 @@ public class Boid {
      */
     public void setObstacleAvoidanceWeight(double weight) {
         this.obstacleAvoidanceWeight = weight;
+    }
+
+    /**
+     * Sets the mouse weight for this boid.
+     * @param weight The new mouse weight
+     */
+    public void setMouseAvoidanceWeight(double weight) {
+        this.mouseAvoidanceWeight = weight;
     }
 
     /**
