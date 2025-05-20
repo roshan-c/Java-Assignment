@@ -135,7 +135,7 @@ public class SimulationGUI {
             }
         });
 
-        JSlider alignmentSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 22);
+        JSlider alignmentSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 20);
         alignmentSlider.setMaximumSize(new java.awt.Dimension(130, 25));
         alignmentSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
@@ -144,7 +144,7 @@ public class SimulationGUI {
             }
         });
 
-        JSlider cohesionSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 22);
+        JSlider cohesionSlider = new JSlider(JSlider.HORIZONTAL, 0, 50, 20);
         cohesionSlider.setMaximumSize(new java.awt.Dimension(130, 25));
         cohesionSlider.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent e) {
@@ -294,8 +294,8 @@ public class SimulationGUI {
                 simulationSpeedSlider.setModel(new javax.swing.DefaultBoundedRangeModel(30, 0, 10, 100));
                 boidSpeedSlider.setModel(new javax.swing.DefaultBoundedRangeModel(10, 0, 0, 50));
                 separationSlider.setModel(new javax.swing.DefaultBoundedRangeModel(15, 0, 0, 40));
-                alignmentSlider.setModel(new javax.swing.DefaultBoundedRangeModel(22, 0, 0, 50));
-                cohesionSlider.setModel(new javax.swing.DefaultBoundedRangeModel(22, 0, 0, 50));
+                alignmentSlider.setModel(new javax.swing.DefaultBoundedRangeModel(20, 0, 0, 50));
+                cohesionSlider.setModel(new javax.swing.DefaultBoundedRangeModel(20, 0, 0, 50));
                 obstacleSlider.setModel(new javax.swing.DefaultBoundedRangeModel(40, 0, 0, 40));
                 mouseWeightSlider.setModel(new javax.swing.DefaultBoundedRangeModel(5,0,0,10)); // Reset mouse slider
                 predatorFleeSlider.setModel(new javax.swing.DefaultBoundedRangeModel(25, 0, 0, 50)); // Reset predator flee slider
